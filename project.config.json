@@ -1,0 +1,14 @@
+{
+  "description": "Brush Jjaemu Replication",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true
+  },
+  "compileType": "game",
+  "libVersion": "latest",
+  "appid": "touristappid",
+  "projectname": "lumaomao"
+}
