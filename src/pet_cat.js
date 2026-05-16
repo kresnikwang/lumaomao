@@ -16,13 +16,26 @@ export default class PetCat {
     
     // Load images
     this.images = {};
+    this.imageLoaded = false;
     this.loadImages();
   }
   
   loadImages() {
     const imageNames = ['pet_idle', 'pet_happy', 'pet_annoyed', 'pet_bite'];
+    let loadedCount = 0;
+    
     imageNames.forEach(name => {
       this.images[name] = wx.createImage();
+      this.images[name].onload = () => {
+        loadedCount++;
+        if (loadedCount === imageNames.length) {
+          this.imageLoaded = true;
+        }
+      };
+      this.images[name].onerror = () => {
+        console.warn(`Failed to load image: ${name}`);
+        loadedCount++;
+      };
       this.images[name].src = `assets/images/${name}.png`;
     });
   }
@@ -32,23 +45,45 @@ export default class PetCat {
     this.warnings = 0;
     this.happiness = 0;
     this.stateTimer = 0;
+    this.gameTime = 30000; // 30 seconds time limit
+    this.timeRemaining = this.gameTime;
     
-    // Define spots relative to cat center
-    // Sweet spots (Head, Chin)
+    // Randomize spots for each game
+    this.randomizeSpots();
+    
+    // Petting direction tracking
+    this.lastPetX = 0;
+    this.lastPetY = 0;
+    this.petDirection = 'NONE';
+    this.directionScore = 0;
+  }
+
+  randomizeSpots() {
+    // Sweet spots (Head, Chin) - slightly randomized positions
+    const headOffset = (Math.random() - 0.5) * 30;
+    const chinOffset = (Math.random() - 0.5) * 20;
     this.sweetSpots = [
-      { x: 0, y: -60, r: 50 }, // Head
-      { x: 0, y: 40, r: 40 }   // Chin
+      { x: headOffset, y: -60 + (Math.random() - 0.5) * 20, r: 45 + Math.random() * 10 },
+      { x: chinOffset, y: 40 + (Math.random() - 0.5) * 15, r: 35 + Math.random() * 10 }
     ];
     
-    // Sensitive spots (Belly, Tail base) - Randomize slightly
+    // Sensitive spots (Belly areas) - randomized
     this.sensitiveSpots = [
-      { x: -60, y: 60, r: 40 }, // Left Belly
-      { x: 60, y: 60, r: 40 }   // Right Belly
+      { x: -50 + (Math.random() - 0.5) * 30, y: 60 + (Math.random() - 0.5) * 20, r: 35 + Math.random() * 10 },
+      { x: 50 + (Math.random() - 0.5) * 30, y: 60 + (Math.random() - 0.5) * 20, r: 35 + Math.random() * 10 }
     ];
   }
 
   update(dt, input) {
     if (this.state === PET_STATE.BITING) return;
+
+    // Update game timer
+    this.timeRemaining -= dt;
+    if (this.timeRemaining <= 0) {
+      this.timeRemaining = 0;
+      this.state = PET_STATE.BITING; // Time's up - game over
+      return;
+    }
 
     if (this.stateTimer > 0) {
       this.stateTimer -= dt;
@@ -58,29 +93,57 @@ export default class PetCat {
     }
 
     if (input.isTouching && input.isMoving) {
-      this.checkPetting(input.lastX, input.lastY);
+      this.checkPetting(input.lastX, input.lastY, input.velocity);
     }
   }
 
-  checkPetting(px, py) {
+  checkPetting(px, py, velocity) {
     // Convert screen coordinates to cat-local coordinates (center is 0,0)
     const localX = px - (this.x + this.width / 2);
     const localY = py - (this.y + this.height / 2);
 
+    // Calculate petting direction
+    if (this.lastPetX !== 0 || this.lastPetY !== 0) {
+      const dx = px - this.lastPetX;
+      const dy = py - this.lastPetY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      
+      if (absDy > absDx && dy < 0) {
+        this.petDirection = 'UP';
+      } else if (absDy > absDx && dy > 0) {
+        this.petDirection = 'DOWN';
+      } else if (absDx > absDy && dx < 0) {
+        this.petDirection = 'LEFT';
+      } else if (absDx > absDy && dx > 0) {
+        this.petDirection = 'RIGHT';
+      }
+    }
+    this.lastPetX = px;
+    this.lastPetY = py;
+
     // Check Sensitive Spots first
     for (let spot of this.sensitiveSpots) {
-      const dist = Math.sqrt(localX * localX + localY * localY);
+      const dist = Math.sqrt((localX - spot.x) * (localX - spot.x) + (localY - spot.y) * (localY - spot.y));
       if (dist < spot.r) {
-        this.triggerWarning();
+        // Direction penalty: horizontal strokes on belly are worse
+        if (this.petDirection === 'LEFT' || this.petDirection === 'RIGHT') {
+          this.triggerWarning(true); // Double penalty for wrong direction
+        } else {
+          this.triggerWarning(false);
+        }
         return 'WARNING';
       }
     }
 
     // Check Sweet Spots
     for (let spot of this.sweetSpots) {
-      const dist = Math.sqrt(localX * localX + localY * localY);
+      const dist = Math.sqrt((localX - spot.x) * (localX - spot.x) + (localY - spot.y) * (localY - spot.y));
       if (dist < spot.r) {
-        this.triggerHappy();
+        // Direction bonus: vertical strokes on head/chin are better
+        const directionBonus = (this.petDirection === 'UP' || this.petDirection === 'DOWN') ? 2 : 1;
+        const velocityBonus = Math.min(velocity * 0.1, 3);
+        this.triggerHappy(directionBonus + velocityBonus);
         return 'HAPPY';
       }
     }
@@ -88,12 +151,12 @@ export default class PetCat {
     return 'NONE';
   }
 
-  triggerWarning() {
-    if (this.state === PET_STATE.ANNOYED) return; // Prevent multi-triggering in one frame
+  triggerWarning(doublePenalty = false) {
+    if (this.state === PET_STATE.ANNOYED) return;
     
-    this.warnings++;
+    this.warnings += doublePenalty ? 2 : 1;
     this.state = PET_STATE.ANNOYED;
-    this.stateTimer = 1000; // Show annoyed face for 1s
+    this.stateTimer = 1000;
     
     wx.vibrateShort();
 
@@ -103,10 +166,20 @@ export default class PetCat {
     }
   }
 
-  triggerHappy() {
+  triggerHappy(bonus = 1) {
     this.state = PET_STATE.HAPPY;
     this.stateTimer = 500;
-    this.happiness += 1;
+    this.happiness += bonus;
+    this.directionScore += bonus;
+  }
+
+  getTimeRemaining() {
+    return Math.ceil(this.timeRemaining / 1000);
+  }
+
+  getAccuracy() {
+    if (this.directionScore === 0) return 0;
+    return Math.min(100, Math.floor((this.directionScore / (this.happiness + this.warnings * 2)) * 100));
   }
 
   render(ctx) {
@@ -135,10 +208,41 @@ export default class PetCat {
       this.drawFace(ctx);
     }
 
+    // Draw spot indicators (subtle hints)
+    this.drawSpotHints(ctx);
+
     // Draw Warnings UI
     this.drawWarnings(ctx);
 
+    // Draw timer
+    this.drawTimer(ctx);
+
     ctx.restore();
+  }
+
+  drawSpotHints(ctx) {
+    // Draw subtle circles for sweet spots (very faint)
+    ctx.globalAlpha = 0.15;
+    ctx.strokeStyle = '#4CAF50';
+    ctx.lineWidth = 2;
+    
+    for (let spot of this.sweetSpots) {
+      ctx.beginPath();
+      ctx.arc(this.x + this.width / 2 + spot.x, this.y + this.height / 2 + spot.y, spot.r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+    ctx.globalAlpha = 1.0;
+  }
+
+  drawTimer(ctx) {
+    const timeLeft = this.getTimeRemaining();
+    const timerColor = timeLeft <= 5 ? '#FF0000' : (timeLeft <= 10 ? '#FF9800' : '#4CAF50');
+    
+    ctx.fillStyle = timerColor;
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`⏱ ${timeLeft}s`, this.x + this.width / 2, this.y - 50);
   }
 
   drawFace(ctx) {
@@ -147,18 +251,15 @@ export default class PetCat {
 
     ctx.fillStyle = '#000000';
     if (this.state === PET_STATE.HAPPY) {
-      // Happy eyes ^ ^
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(cx - 40, cy - 20); ctx.lineTo(cx - 30, cy - 30); ctx.lineTo(cx - 20, cy - 20);
       ctx.moveTo(cx + 20, cy - 20); ctx.lineTo(cx + 30, cy - 30); ctx.lineTo(cx + 40, cy - 20);
       ctx.stroke();
-      // Smile
       ctx.beginPath();
       ctx.arc(cx, cy + 10, 20, 0, Math.PI);
       ctx.stroke();
     } else if (this.state === PET_STATE.ANNOYED) {
-      // Angry eyes > <
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(cx - 40, cy - 30); ctx.lineTo(cx - 20, cy - 20);
@@ -166,10 +267,8 @@ export default class PetCat {
       ctx.moveTo(cx + 40, cy - 30); ctx.lineTo(cx + 20, cy - 20);
       ctx.moveTo(cx + 40, cy - 10); ctx.lineTo(cx + 20, cy - 20);
       ctx.stroke();
-      // Flat mouth
       ctx.fillRect(cx - 20, cy + 20, 40, 4);
     } else if (this.state === PET_STATE.BITING) {
-      // Biting - X X eyes
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(cx - 40, cy - 30); ctx.lineTo(cx - 20, cy - 10);
@@ -177,14 +276,11 @@ export default class PetCat {
       ctx.moveTo(cx + 20, cy - 30); ctx.lineTo(cx + 40, cy - 10);
       ctx.moveTo(cx + 40, cy - 30); ctx.lineTo(cx + 20, cy - 10);
       ctx.stroke();
-      // Open mouth
       ctx.fillStyle = '#FF0000';
       ctx.fillRect(cx - 20, cy + 10, 40, 20);
     } else {
-      // Relaxed eyes - -
       ctx.fillRect(cx - 40, cy - 20, 25, 4);
       ctx.fillRect(cx + 15, cy - 20, 25, 4);
-      // Small mouth
       ctx.beginPath();
       ctx.arc(cx, cy + 10, 10, 0.2 * Math.PI, 0.8 * Math.PI);
       ctx.stroke();
@@ -201,7 +297,7 @@ export default class PetCat {
     ctx.fillStyle = '#666666';
     ctx.font = '16px Arial';
     ctx.textAlign = 'left';
-    ctx.fillText('警告次数', this.x + 110, this.y - 25);
+    ctx.fillText('警告', this.x + 110, this.y - 25);
   }
 
   drawRoundedRect(ctx, x, y, width, height, radius) {

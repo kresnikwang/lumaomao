@@ -18,30 +18,91 @@ export default class Cat {
     this.lookTimer = 0;
     this.nextEventTimer = this.getNextEventDelay();
     
+    // Combo system
+    this.combo = 0;
+    this.comboTimer = 0;
+    this.maxCombo = 0;
+    
+    // Difficulty scaling
+    this.difficultyLevel = 1;
+    this.scoreThreshold = 50; // Increase difficulty every 50 points
+    
+    // Perfect timing
+    this.perfectWindow = 200; // ms after alert starts where stopping = perfect
+    this.alertStartTime = 0;
+    this.perfectStops = 0;
+    
     // Load images
     this.images = {};
+    this.imageLoaded = false;
     this.loadImages();
   }
   
   loadImages() {
     const imageNames = ['brush_idle', 'brush_happy', 'brush_alert', 'brush_looking', 'brush_bite'];
+    let loadedCount = 0;
+    
     imageNames.forEach(name => {
       this.images[name] = wx.createImage();
+      this.images[name].onload = () => {
+        loadedCount++;
+        if (loadedCount === imageNames.length) {
+          this.imageLoaded = true;
+        }
+      };
+      this.images[name].onerror = () => {
+        console.warn(`Failed to load image: ${name}`);
+        loadedCount++;
+      };
       this.images[name].src = `assets/images/${name}.png`;
     });
   }
 
   getNextEventDelay() {
-    // Random delay between 2 to 5 seconds for the next alert
-    return 2000 + Math.random() * 3000;
+    // Scale difficulty: faster alerts as level increases
+    const baseMin = Math.max(800, 2000 - (this.difficultyLevel - 1) * 200);
+    const baseMax = Math.max(1500, 5000 - (this.difficultyLevel - 1) * 300);
+    return baseMin + Math.random() * (baseMax - baseMin);
   }
 
-  update(dt, isBrushing) {
+  getAlertDuration() {
+    // Alert duration decreases with difficulty
+    const base = 800 + Math.random() * 700;
+    return Math.max(400, base - (this.difficultyLevel - 1) * 100);
+  }
+
+  getLookDuration() {
+    // Looking duration increases with difficulty (more dangerous)
+    const base = 1000 + Math.random() * 1500;
+    return Math.min(3000, base + (this.difficultyLevel - 1) * 200);
+  }
+
+  updateDifficulty(score) {
+    const newLevel = Math.floor(score / this.scoreThreshold) + 1;
+    if (newLevel > this.difficultyLevel) {
+      this.difficultyLevel = newLevel;
+    }
+  }
+
+  update(dt, isBrushing, score = 0) {
     if (this.state === CAT_STATE.BITING) return;
+
+    // Update difficulty based on score
+    this.updateDifficulty(score);
+
+    // Update combo timer
+    if (this.comboTimer > 0) {
+      this.comboTimer -= dt;
+      if (this.comboTimer <= 0) {
+        this.combo = 0;
+      }
+    }
 
     if (this.state === CAT_STATE.IDLE || this.state === CAT_STATE.BRUSHING) {
       if (isBrushing) {
         this.state = CAT_STATE.BRUSHING;
+        // Maintain combo while brushing
+        this.comboTimer = 1500; // 1.5s window to maintain combo
       } else {
         this.state = CAT_STATE.IDLE;
       }
@@ -49,21 +110,46 @@ export default class Cat {
       this.nextEventTimer -= dt;
       if (this.nextEventTimer <= 0) {
         this.state = CAT_STATE.ALERT;
-        this.alertTimer = 800 + Math.random() * 700; // Warning for 0.8 - 1.5s
+        this.alertTimer = this.getAlertDuration();
+        this.alertStartTime = Date.now();
       }
     } else if (this.state === CAT_STATE.ALERT) {
       this.alertTimer -= dt;
+      
+      // Check for perfect stop: player stopped brushing right after alert
+      if (!isBrushing && this.alertStartTime > 0) {
+        const elapsed = Date.now() - this.alertStartTime;
+        if (elapsed < this.perfectWindow) {
+          this.perfectStops++;
+          this.combo = Math.min(this.combo + 2, 20); // Perfect gives +2 combo
+          this.comboTimer = 2000;
+        }
+        this.alertStartTime = 0; // Reset to prevent multiple triggers
+      }
+      
       if (this.alertTimer <= 0) {
         this.state = CAT_STATE.LOOKING;
-        this.lookTimer = 1000 + Math.random() * 1500; // Looking for 1 - 2.5s
+        this.lookTimer = this.getLookDuration();
       }
     } else if (this.state === CAT_STATE.LOOKING) {
       this.lookTimer -= dt;
       if (this.lookTimer <= 0) {
         this.state = CAT_STATE.IDLE;
         this.nextEventTimer = this.getNextEventDelay();
+        // Successful survival gives combo
+        this.combo = Math.min(this.combo + 1, 20);
+        this.comboTimer = 1500;
       }
     }
+  }
+
+  getScoreMultiplier() {
+    // Combo multiplier: 1x at 0 combo, up to 5x at 20 combo
+    return 1 + (this.combo * 0.2);
+  }
+
+  isPerfectStop() {
+    return this.perfectStops > 0;
   }
 
   render(ctx) {
@@ -94,15 +180,35 @@ export default class Cat {
       ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 
+    // Draw combo indicator
+    if (this.combo > 1) {
+      ctx.fillStyle = '#FF6B6B';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${this.combo}x 连击!`, this.x + this.width / 2, this.y - 20);
+    }
+
+    // Draw difficulty level
+    ctx.fillStyle = '#666666';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText(`Lv.${this.difficultyLevel}`, this.x + this.width, this.y - 10);
+
     ctx.restore();
   }
 
   bite() {
     this.state = CAT_STATE.BITING;
+    this.combo = 0;
   }
 
   reset() {
     this.state = CAT_STATE.IDLE;
     this.nextEventTimer = this.getNextEventDelay();
+    this.combo = 0;
+    this.comboTimer = 0;
+    this.difficultyLevel = 1;
+    this.perfectStops = 0;
+    this.alertStartTime = 0;
   }
 }

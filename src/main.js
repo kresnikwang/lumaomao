@@ -25,7 +25,11 @@ class Main {
     this.score = 0;
     this.gameState = 'HOME'; // HOME, PLAYING, GAMEOVER, PET_GAME, PET_GAMEOVER, RANK
     
+    // Frame rate control
     this.lastTime = Date.now();
+    this.targetFPS = 60;
+    this.frameInterval = 1000 / this.targetFPS;
+    this.accumulator = 0;
     
     // Background image for game scenes
     this.bgImg = wx.createImage();
@@ -130,30 +134,41 @@ class Main {
 
   update() {
     const now = Date.now();
-    const dt = now - this.lastTime;
+    const dt = Math.min(now - this.lastTime, 100); // Cap dt at 100ms to prevent huge jumps
     this.lastTime = now;
-
-    if (this.gameState === 'PLAYING') {
-      this.updateBrush(dt);
-    } else if (this.gameState === 'PET_GAME') {
-      this.updatePet(dt);
+    
+    this.accumulator += dt;
+    
+    // Fixed time step updates
+    while (this.accumulator >= this.frameInterval) {
+      if (this.gameState === 'PLAYING') {
+        this.updateBrush(this.frameInterval);
+      } else if (this.gameState === 'PET_GAME') {
+        this.updatePet(this.frameInterval);
+      }
+      this.accumulator -= this.frameInterval;
     }
   }
 
   updateBrush(dt) {
     this.input.update();
     const isBrushing = this.input.isTouching && this.input.velocity > 0;
-    this.cat.update(dt, isBrushing);
+    this.cat.update(dt, isBrushing, this.score);
 
     if (isBrushing) {
       if (this.cat.state === CAT_STATE.LOOKING) {
         this.gameState = 'GAMEOVER';
         this.cat.bite();
-        Store.saveScore('BRUSH', this.score);
+        const finalScore = Math.floor(this.score);
+        Store.saveScore('BRUSH', finalScore);
         wx.vibrateLong();
         AudioManager.playBite();
       } else {
-        this.score += this.input.velocity * 0.1;
+        // Apply combo multiplier
+        const multiplier = this.cat.getScoreMultiplier();
+        const baseScore = this.input.smoothedVelocity * 0.1;
+        this.score += baseScore * multiplier;
+        
         if (Math.random() < 0.05) AudioManager.playBrush();
       }
     }
@@ -176,7 +191,8 @@ class Main {
 
     if (this.petCat.state === PET_STATE.BITING) {
       this.gameState = 'PET_GAMEOVER';
-      Store.saveScore('PET', this.score);
+      const finalScore = Math.floor(this.score);
+      Store.saveScore('PET', finalScore);
       AudioManager.playBite();
     } else if (this.petCat.state === PET_STATE.HAPPY && prevState !== PET_STATE.HAPPY) {
       AudioManager.playMeow();
@@ -200,10 +216,18 @@ class Main {
       this.leaderboard.render(this.ctx, Store.getLeaderboardData());
     } else if (this.gameState === 'PET_GAME' || this.gameState === 'PET_GAMEOVER') {
       this.petCat.render(this.ctx);
-      this.ui.render(this.ctx, this.score, this.gameState === 'PET_GAMEOVER' ? 'GAMEOVER' : 'PLAYING');
+      this.ui.render(this.ctx, this.score, this.gameState === 'PET_GAMEOVER' ? 'GAMEOVER' : 'PLAYING', {
+        combo: 0,
+        timeRemaining: this.petCat.getTimeRemaining(),
+        isPetMode: true
+      });
     } else {
       this.cat.render(this.ctx);
-      this.ui.render(this.ctx, this.score, this.gameState);
+      this.ui.render(this.ctx, this.score, this.gameState, {
+        combo: this.cat.combo,
+        difficulty: this.cat.difficultyLevel,
+        isPetMode: false
+      });
     }
   }
 
