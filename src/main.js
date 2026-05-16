@@ -6,6 +6,8 @@ import Home from './home.js';
 import Store from './store.js';
 import Leaderboard from './leaderboard.js';
 import AudioManager from './audio.js';
+import ParticleSystem from './particles.js';
+import Tutorial from './tutorial.js';
 
 class Main {
   constructor() {
@@ -21,6 +23,8 @@ class Main {
     this.input = new InputHandler();
     this.ui = new UI(this.width, this.height);
     this.leaderboard = new Leaderboard(this.width, this.height);
+    this.particles = new ParticleSystem();
+    this.tutorial = new Tutorial(this.width, this.height);
 
     this.score = 0;
     this.gameState = 'HOME'; // HOME, PLAYING, GAMEOVER, PET_GAME, PET_GAMEOVER, RANK
@@ -47,6 +51,13 @@ class Main {
       const touch = res.touches[0];
       const x = touch.clientX;
       const y = touch.clientY;
+
+      // Check tutorial first
+      if (this.tutorial.visible) {
+        if (this.tutorial.checkClick(x, y)) {
+          return;
+        }
+      }
 
       if (this.gameState === 'HOME') {
         const action = this.home.checkClick(x, y);
@@ -122,14 +133,26 @@ class Main {
     this.score = 0;
     this.gameState = 'PLAYING';
     this.cat.reset();
+    this.particles.clear();
     AudioManager.playPurr();
+    
+    // Show tutorial for first-time players
+    if (this.tutorial.shouldShow('BRUSH')) {
+      this.tutorial.start('BRUSH');
+    }
   }
 
   restartPet() {
     this.score = 0;
     this.gameState = 'PET_GAME';
     this.petCat.reset();
+    this.particles.clear();
     AudioManager.playPurr();
+    
+    // Show tutorial for first-time players
+    if (this.tutorial.shouldShow('PET')) {
+      this.tutorial.start('PET');
+    }
   }
 
   update() {
@@ -146,6 +169,11 @@ class Main {
       } else if (this.gameState === 'PET_GAME') {
         this.updatePet(this.frameInterval);
       }
+      
+      // Update particles and tutorial
+      this.particles.update();
+      this.tutorial.update(this.frameInterval);
+      
       this.accumulator -= this.frameInterval;
     }
   }
@@ -153,6 +181,7 @@ class Main {
   updateBrush(dt) {
     this.input.update();
     const isBrushing = this.input.isTouching && this.input.velocity > 0;
+    const prevScore = this.score;
     this.cat.update(dt, isBrushing, this.score);
 
     if (isBrushing) {
@@ -163,11 +192,35 @@ class Main {
         Store.saveScore('BRUSH', finalScore);
         wx.vibrateLong();
         AudioManager.playBite();
+        
+        // Effects
+        this.ui.triggerShake(15);
+        this.particles.spawnRedFlash(this.width, this.height);
       } else {
         // Apply combo multiplier
         const multiplier = this.cat.getScoreMultiplier();
         const baseScore = this.input.smoothedVelocity * 0.1;
-        this.score += baseScore * multiplier;
+        const scoreGain = baseScore * multiplier;
+        this.score += scoreGain;
+        
+        // Spawn fur particles
+        if (Math.random() < 0.3) {
+          this.particles.spawnFur(
+            this.cat.x + this.cat.width / 2,
+            this.cat.y + this.cat.height / 2
+          );
+        }
+        
+        // Score popup for significant gains
+        const scoreDiff = this.score - prevScore;
+        if (scoreDiff >= 5) {
+          this.particles.spawnScorePopup(
+            this.cat.x + this.cat.width / 2 + (Math.random() - 0.5) * 40,
+            this.cat.y - 20,
+            scoreDiff,
+            this.cat.combo > 3
+          );
+        }
         
         if (Math.random() < 0.05) AudioManager.playBrush();
       }
@@ -186,6 +239,7 @@ class Main {
   updatePet(dt) {
     this.input.update();
     const prevState = this.petCat.state;
+    const prevScore = this.score;
     this.petCat.update(dt, this.input);
     this.score = this.petCat.happiness;
 
@@ -194,10 +248,38 @@ class Main {
       const finalScore = Math.floor(this.score);
       Store.saveScore('PET', finalScore);
       AudioManager.playBite();
+      
+      // Effects
+      this.ui.triggerShake(15);
+      this.particles.spawnRedFlash(this.width, this.height);
     } else if (this.petCat.state === PET_STATE.HAPPY && prevState !== PET_STATE.HAPPY) {
       AudioManager.playMeow();
+      
+      // Spawn heart particles
+      this.particles.spawnHearts(
+        this.petCat.x + this.petCat.width / 2,
+        this.petCat.y + this.petCat.height / 2 - 30,
+        2
+      );
+      
+      // Score popup
+      const scoreDiff = this.score - prevScore;
+      if (scoreDiff > 0) {
+        this.particles.spawnScorePopup(
+          this.petCat.x + this.petCat.width / 2 + (Math.random() - 0.5) * 40,
+          this.petCat.y - 20,
+          scoreDiff,
+          false
+        );
+      }
     } else if (this.petCat.state === PET_STATE.ANNOYED && prevState !== PET_STATE.ANNOYED) {
       AudioManager.playHiss();
+      
+      // Warning particles
+      this.particles.spawnWarning(
+        this.petCat.x + this.petCat.width / 2,
+        this.petCat.y - 40
+      );
     }
   }
 
@@ -229,6 +311,12 @@ class Main {
         isPetMode: false
       });
     }
+    
+    // Render particles on top
+    this.particles.render(this.ctx);
+    
+    // Render tutorial on top of everything
+    this.tutorial.render(this.ctx);
   }
 
   loop() {

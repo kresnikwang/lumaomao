@@ -7,43 +7,31 @@ export default class UI {
     this.warningImg = wx.createImage();
     this.warningImg.src = 'assets/images/icon_warning.png';
     
-    // Floating texts for score feedback
-    this.floatingTexts = [];
-    
     // Screen shake effect
     this.shakeIntensity = 0;
     this.shakeDecay = 0.9;
-  }
-
-  addFloatingText(text, x, y, color = '#FFD700', size = 24) {
-    this.floatingTexts.push({
-      text,
-      x,
-      y,
-      color,
-      size,
-      life: 1.0,
-      decay: 0.02
-    });
+    
+    // Red flash effect
+    this.redFlashIntensity = 0;
+    this.redFlashDecay = 0.95;
   }
 
   triggerShake(intensity = 10) {
     this.shakeIntensity = intensity;
   }
 
-  updateFloatingTexts() {
-    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
-      const ft = this.floatingTexts[i];
-      ft.life -= ft.decay;
-      ft.y -= 1; // Float upward
-      if (ft.life <= 0) {
-        this.floatingTexts.splice(i, 1);
-      }
-    }
-    
+  triggerRedFlash() {
+    this.redFlashIntensity = 1.0;
+  }
+
+  updateEffects() {
     // Decay shake
     this.shakeIntensity *= this.shakeDecay;
     if (this.shakeIntensity < 0.5) this.shakeIntensity = 0;
+    
+    // Decay red flash
+    this.redFlashIntensity *= this.redFlashDecay;
+    if (this.redFlashIntensity < 0.01) this.redFlashIntensity = 0;
   }
 
   getShakeOffset() {
@@ -57,12 +45,12 @@ export default class UI {
   render(ctx, score, gameState, extraInfo = {}) {
     ctx.save();
     
+    // Update and apply effects
+    this.updateEffects();
+    
     // Apply screen shake
     const shake = this.getShakeOffset();
     ctx.translate(shake.x, shake.y);
-    
-    // Update floating texts
-    this.updateFloatingTexts();
     
     // Draw Score with background
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -99,16 +87,6 @@ export default class UI {
       ctx.textAlign = 'left';
       ctx.fillText(`⏱ ${extraInfo.timeRemaining}s`, 20, 30);
     }
-    
-    // Draw floating texts
-    this.floatingTexts.forEach(ft => {
-      ctx.globalAlpha = ft.life;
-      ctx.fillStyle = ft.color;
-      ctx.font = `bold ${ft.size}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText(ft.text, ft.x, ft.y);
-    });
-    ctx.globalAlpha = 1.0;
 
     if (gameState === 'GAMEOVER' || gameState === 'PET_GAMEOVER') {
       // Semi-transparent overlay
@@ -150,6 +128,12 @@ export default class UI {
         width: 180,
         height: 50
       };
+    }
+    
+    // Apply red flash on top of everything
+    if (this.redFlashIntensity > 0) {
+      ctx.fillStyle = `rgba(255, 0, 0, ${this.redFlashIntensity * 0.3})`;
+      ctx.fillRect(0, 0, this.width, this.height);
     }
 
     ctx.restore();
