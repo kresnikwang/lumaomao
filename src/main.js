@@ -344,7 +344,22 @@ class Main {
   render() {
     // Draw background
     if (this.bgImg && this.bgImg.width > 0) {
-      this.ctx.drawImage(this.bgImg, 0, 0, this.width, this.height);
+      const imgRatio = this.bgImg.width / this.bgImg.height;
+      const screenRatio = this.width / this.height;
+      let drawW, drawH, drawX, drawY;
+
+      if (imgRatio > screenRatio) {
+        drawH = this.height;
+        drawW = this.bgImg.width * (this.height / this.bgImg.height);
+        drawX = (this.width - drawW) / 2;
+        drawY = 0;
+      } else {
+        drawW = this.width;
+        drawH = this.bgImg.height * (this.width / this.bgImg.width);
+        drawX = 0;
+        drawY = (this.height - drawH) / 2;
+      }
+      this.ctx.drawImage(this.bgImg, drawX, drawY, drawW, drawH);
     } else {
       this.ctx.fillStyle = '#FFF8DC';
       this.ctx.fillRect(0, 0, this.width, this.height);

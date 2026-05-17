@@ -51,7 +51,24 @@ export default class Home {
     // Background
     const bgImg = this.images['bg_main'];
     if (bgImg && bgImg.width > 0) {
-      ctx.drawImage(bgImg, 0, 0, this.width, this.height);
+      const imgRatio = bgImg.width / bgImg.height;
+      const screenRatio = this.width / this.height;
+      let drawW, drawH, drawX, drawY;
+
+      if (imgRatio > screenRatio) {
+        // Image is wider than screen: scale height to fit screen, crop sides
+        drawH = this.height;
+        drawW = bgImg.width * (this.height / bgImg.height);
+        drawX = (this.width - drawW) / 2;
+        drawY = 0;
+      } else {
+        // Image is taller than screen: scale width to fit screen, crop top/bottom
+        drawW = this.width;
+        drawH = bgImg.height * (this.width / bgImg.width);
+        drawX = 0;
+        drawY = (this.height - drawH) / 2;
+      }
+      ctx.drawImage(bgImg, drawX, drawY, drawW, drawH);
     } else {
       ctx.fillStyle = '#FFF8DC'; // Warmer background fallback
       ctx.fillRect(0, 0, this.width, this.height);
