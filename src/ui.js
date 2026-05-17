@@ -14,64 +14,6 @@ export default class UI {
     // Red flash effect
     this.redFlashIntensity = 0;
     this.redFlashDecay = 0.95;
-
-    // Custom Modal state
-    this.modal = {
-      visible: false,
-      title: '',
-      content: '',
-      onConfirm: null,
-      onCancel: null
-    };
-  }
-
-  showModal(title, content, onConfirm, onCancel) {
-    this.modal.visible = true;
-    this.modal.title = title;
-    this.modal.content = content;
-    this.modal.onConfirm = onConfirm;
-    this.modal.onCancel = onCancel;
-  }
-
-  hideModal() {
-    this.modal.visible = false;
-  }
-
-  checkModalClick(x, y) {
-    if (!this.modal.visible) return false;
-
-    const modalW = 280;
-    const modalH = 200;
-    const modalX = (this.width - modalW) / 2;
-    const modalY = (this.height - modalH) / 2;
-
-    const btnW = 100;
-    const btnH = 40;
-    const btnY = modalY + modalH - 60;
-
-    const cancelX = modalX + 20;
-    const confirmX = modalX + modalW - btnW - 20;
-
-    // Check cancel
-    if (x >= cancelX && x <= cancelX + btnW && y >= btnY && y <= btnY + btnH) {
-      if (this.modal.onCancel) this.modal.onCancel();
-      this.hideModal();
-      return true;
-    }
-
-    // Check confirm
-    if (x >= confirmX && x <= confirmX + btnW && y >= btnY && y <= btnY + btnH) {
-      if (this.modal.onConfirm) this.modal.onConfirm();
-      this.hideModal();
-      return true;
-    }
-
-    // If clicked inside modal but not buttons, consume event
-    if (x >= modalX && x <= modalX + modalW && y >= modalY && y <= modalY + modalH) {
-      return true;
-    }
-
-    return false; // Clicked outside modal
   }
 
   drawBrushCursor(ctx, x, y) {
@@ -193,56 +135,75 @@ export default class UI {
 
     if (gameState === 'GAMEOVER' || gameState === 'PET_GAMEOVER') {
       // Semi-transparent overlay
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.fillRect(0, 0, this.width, this.height);
 
-      // Warning icon
+      // Game Over Card
+      const cardW = 300;
+      const cardH = 340;
+      const cardX = (this.width - cardW) / 2;
+      const cardY = (this.height - cardH) / 2 - 20;
+
+      // Card Background (warm theme)
+      ctx.fillStyle = '#FFF8DC';
+      this.roundRect(ctx, cardX, cardY, cardW, cardH, 20);
+      ctx.fill();
+      
+      // Inner Border
+      ctx.strokeStyle = '#FFCC88';
+      ctx.lineWidth = 4;
+      this.roundRect(ctx, cardX + 10, cardY + 10, cardW - 20, cardH - 20, 15);
+      ctx.stroke();
+
+      // Warning icon at the top of the card
       if (this.warningImg && this.warningImg.width > 0) {
-        ctx.drawImage(this.warningImg, this.width / 2 - 40, this.height / 2 - 140, 80, 80);
+        ctx.drawImage(this.warningImg, this.width / 2 - 35, cardY - 35, 70, 70);
       }
 
       // Game Over Text
       const isTimeUp = extraInfo.isPetMode && extraInfo.timeRemaining === 0;
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#FF4444';
-      ctx.font = 'bold 52px Arial';
-      ctx.fillText(isTimeUp ? '时间到!' : '被咬了!', this.width / 2, this.height / 2 - 30);
+      ctx.fillStyle = '#FF5252'; // Softer red
+      ctx.font = 'bold 44px Arial';
+      ctx.fillText(isTimeUp ? '时间到!' : '被咬了!', this.width / 2, cardY + 90);
+      
+      // Subtitle
+      ctx.fillStyle = '#888888';
+      ctx.font = '18px Arial';
+      ctx.fillText('猫猫已经失去耐心了', this.width / 2, cardY + 130);
+      
+      // Divider
+      ctx.beginPath();
+      ctx.moveTo(cardX + 40, cardY + 150);
+      ctx.lineTo(cardX + cardW - 40, cardY + 150);
+      ctx.strokeStyle = '#E0E0E0';
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-      
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '22px Arial';
-      ctx.fillText('点击屏幕重新开始', this.width / 2, this.height / 2 + 30);
-      
       // Show final score
-      ctx.fillStyle = '#FFD700';
-      ctx.font = 'bold 28px Arial';
-      ctx.fillText(`最终得分: ${Math.floor(score)}`, this.width / 2, this.height / 2 + 70);
+      ctx.fillStyle = '#FF9800'; // Orange
+      ctx.font = 'bold 36px Arial';
+      ctx.fillText(`得分: ${Math.floor(score)}`, this.width / 2, cardY + 210);
 
       // Back to home button
       ctx.fillStyle = '#FF9800';
       ctx.beginPath();
       const r2 = 12;
-      const x2 = this.width / 2 - 90, y2 = this.height / 2 + 100, w2 = 180, h2 = 50;
-      ctx.moveTo(x2 + r2, y2);
-      ctx.lineTo(x2 + w2 - r2, y2);
-      ctx.quadraticCurveTo(x2 + w2, y2, x2 + w2, y2 + r2);
-      ctx.lineTo(x2 + w2, y2 + h2 - r2);
-      ctx.quadraticCurveTo(x2 + w2, y2 + h2, x2 + w2 - r2, y2 + h2);
-      ctx.lineTo(x2 + r2, y2 + h2);
-      ctx.quadraticCurveTo(x2, y2 + h2, x2, y2 + h2 - r2);
-      ctx.lineTo(x2, y2 + r2);
-      ctx.quadraticCurveTo(x2, y2, x2 + r2, y2);
-      ctx.closePath();
+      const btnW = 200, btnH = 50;
+      const btnX = this.width / 2 - btnW / 2;
+      const btnY2 = cardY + 260;
+      this.roundRect(ctx, btnX, btnY2, btnW, btnH, r2);
       ctx.fill();
+      
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 22px Arial';
-      ctx.fillText('返回首页', this.width / 2, this.height / 2 + 133);
+      ctx.fillText('返回首页', this.width / 2, btnY2 + 33);
       
       this.backBtnRect = {
-        x: this.width / 2 - 90,
-        y: this.height / 2 + 100,
-        width: 180,
-        height: 50
+        x: btnX,
+        y: btnY2,
+        width: btnW,
+        height: btnH
       };
     }
     
@@ -252,64 +213,6 @@ export default class UI {
       ctx.fillRect(0, 0, this.width, this.height);
     }
 
-    // Render custom modal if visible
-    if (this.modal.visible) {
-      this.renderModal(ctx);
-    }
-
     ctx.restore();
-  }
-
-  renderModal(ctx) {
-    // Dim background
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, this.width, this.height);
-
-    const modalW = 280;
-    const modalH = 200;
-    const modalX = (this.width - modalW) / 2;
-    const modalY = (this.height - modalH) / 2;
-
-    // Modal background
-    ctx.fillStyle = '#FFF8DC'; // Warm game-themed color instead of pure white
-    this.roundRect(ctx, modalX, modalY, modalW, modalH, 15);
-    ctx.fill();
-
-    // Title
-    ctx.fillStyle = '#333333';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(this.modal.title, this.width / 2, modalY + 45);
-
-    // Content (multi-line simple support)
-    ctx.fillStyle = '#666666';
-    ctx.font = '16px Arial';
-    const lines = this.modal.content.split('\n');
-    lines.forEach((line, i) => {
-      ctx.fillText(line, this.width / 2, modalY + 90 + i * 25);
-    });
-
-    // Buttons
-    const btnW = 100;
-    const btnH = 40;
-    const btnY = modalY + modalH - 60;
-    const cancelX = modalX + 20;
-    const confirmX = modalX + modalW - btnW - 20;
-
-    // Cancel Button
-    ctx.fillStyle = '#EEEEEE';
-    this.roundRect(ctx, cancelX, btnY, btnW, btnH, 8);
-    ctx.fill();
-    ctx.fillStyle = '#666666';
-    ctx.font = '16px Arial';
-    ctx.fillText('取消', cancelX + btnW / 2, btnY + 26);
-
-    // Confirm Button
-    ctx.fillStyle = '#FF9800';
-    this.roundRect(ctx, confirmX, btnY, btnW, btnH, 8);
-    ctx.fill();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 16px Arial';
-    ctx.fillText('看广告', confirmX + btnW / 2, btnY + 26);
   }
 }

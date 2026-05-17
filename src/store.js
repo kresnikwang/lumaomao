@@ -1,6 +1,4 @@
 const STORAGE_KEYS = {
-  CHANCES: 'lumaomao_chances',
-  LAST_RESET_DATE: 'lumaomao_last_reset',
   BRUSH_TOTAL_SCORE: 'lumaomao_brush_total',
   PET_TOTAL_SCORE: 'lumaomao_pet_total',
   BRUSH_HIGH_SCORE: 'lumaomao_brush_high',
@@ -11,7 +9,6 @@ const STORAGE_KEYS = {
 class Store {
   constructor() {
     this.data = {
-      chances: 3,
       brushTotal: 0,
       petTotal: 0,
       brushHigh: 0,
@@ -22,7 +19,7 @@ class Store {
 
   // Simple checksum to detect tampering
   calculateChecksum() {
-    const dataStr = `${this.data.chances}|${this.data.brushTotal}|${this.data.petTotal}|${this.data.brushHigh}|${this.data.petHigh}`;
+    const dataStr = `${this.data.brushTotal}|${this.data.petTotal}|${this.data.brushHigh}|${this.data.petHigh}`;
     let hash = 0;
     for (let i = 0; i < dataStr.length; i++) {
       const char = dataStr.charCodeAt(i);
@@ -44,18 +41,6 @@ class Store {
   }
 
   init() {
-    const lastReset = wx.getStorageSync(STORAGE_KEYS.LAST_RESET_DATE);
-    const today = new Date().toDateString();
-
-    if (lastReset !== today) {
-      // New day, reset chances
-      this.data.chances = 3;
-      wx.setStorageSync(STORAGE_KEYS.CHANCES, 3);
-      wx.setStorageSync(STORAGE_KEYS.LAST_RESET_DATE, today);
-    } else {
-      this.data.chances = wx.getStorageSync(STORAGE_KEYS.CHANCES) || 0;
-    }
-
     this.data.brushTotal = wx.getStorageSync(STORAGE_KEYS.BRUSH_TOTAL_SCORE) || 0;
     this.data.petTotal = wx.getStorageSync(STORAGE_KEYS.PET_TOTAL_SCORE) || 0;
     this.data.brushHigh = wx.getStorageSync(STORAGE_KEYS.BRUSH_HIGH_SCORE) || 0;
@@ -73,27 +58,10 @@ class Store {
   }
 
   saveAll() {
-    wx.setStorageSync(STORAGE_KEYS.CHANCES, this.data.chances);
     wx.setStorageSync(STORAGE_KEYS.BRUSH_TOTAL_SCORE, this.data.brushTotal);
     wx.setStorageSync(STORAGE_KEYS.PET_TOTAL_SCORE, this.data.petTotal);
     wx.setStorageSync(STORAGE_KEYS.BRUSH_HIGH_SCORE, this.data.brushHigh);
     wx.setStorageSync(STORAGE_KEYS.PET_HIGH_SCORE, this.data.petHigh);
-    this.saveWithChecksum();
-  }
-
-  useChance() {
-    if (this.data.chances > 0) {
-      this.data.chances--;
-      wx.setStorageSync(STORAGE_KEYS.CHANCES, this.data.chances);
-      this.saveWithChecksum();
-      return true;
-    }
-    return false;
-  }
-
-  refillChances() {
-    this.data.chances += 3;
-    wx.setStorageSync(STORAGE_KEYS.CHANCES, this.data.chances);
     this.saveWithChecksum();
   }
 

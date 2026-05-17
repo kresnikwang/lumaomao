@@ -81,17 +81,10 @@ class Main {
     wx.onTouchStart((res) => {
       // Resume audio context on first interaction
       AudioManager.resume();
-      
+
       const touch = res.touches[0];
       const x = touch.clientX;
       const y = touch.clientY;
-
-      // Check modal clicks first
-      if (this.ui.modal.visible) {
-        if (this.ui.checkModalClick(x, y)) {
-          return;
-        }
-      }
 
       // Check pause button first (during gameplay)
 
@@ -121,68 +114,40 @@ class Main {
       if (this.gameState === 'HOME') {
         const action = this.home.checkClick(x, y);
         if (action === 'BRUSH') {
-          this.tryStartGame('BRUSH');
+          AudioManager.playClick();
+          this.restartBrush();
         } else if (action === 'PET') {
-          this.tryStartGame('PET');
+          AudioManager.playClick();
+          this.restartPet();
         } else if (action === 'RANK') {
+          AudioManager.playClick();
           this.gameState = 'RANK';
         }
       } else if (this.gameState === 'GAMEOVER') {
         if (this.ui.backBtnRect && 
             x >= this.ui.backBtnRect.x && x <= this.ui.backBtnRect.x + this.ui.backBtnRect.width &&
             y >= this.ui.backBtnRect.y && y <= this.ui.backBtnRect.y + this.ui.backBtnRect.height) {
+          AudioManager.playClick();
           this.gameState = 'HOME';
         } else if (this.restartDelay <= 0) {
-          this.tryStartGame('BRUSH');
+          this.restartBrush();
         }
       } else if (this.gameState === 'PET_GAMEOVER') {
         if (this.ui.backBtnRect && 
             x >= this.ui.backBtnRect.x && x <= this.ui.backBtnRect.x + this.ui.backBtnRect.width &&
             y >= this.ui.backBtnRect.y && y <= this.ui.backBtnRect.y + this.ui.backBtnRect.height) {
+          AudioManager.playClick();
           this.gameState = 'HOME';
         } else if (this.restartDelay <= 0) {
-          this.tryStartGame('PET');
+          this.restartPet();
         }
       } else if (this.gameState === 'RANK') {
         if (this.leaderboard.checkClick(x, y) === 'BACK') {
+          AudioManager.playClick();
           this.gameState = 'HOME';
         }
       }
     });
-  }
-
-  tryStartGame(type) {
-    AudioManager.playClick();
-    if (Store.data.chances > 0) {
-      Store.useChance();
-      if (type === 'BRUSH') {
-        this.restartBrush();
-      } else {
-        this.restartPet();
-      }
-    } else {
-      this.showAdRefillDialog();
-    }
-  }
-
-  showAdRefillDialog() {
-    this.ui.showModal(
-      '次数不足',
-      '观看一个短视频广告即可\n获得3次游玩机会！',
-      () => {
-        this.mockWatchAd();
-      },
-      () => {}
-    );
-  }
-
-  mockWatchAd() {
-    wx.showLoading({ title: '视频加载中...' });
-    setTimeout(() => {
-      wx.hideLoading();
-      wx.showToast({ title: '获得3次机会！', icon: 'success' });
-      Store.refillChances();
-    }, 2000);
   }
 
   restartBrush() {
@@ -386,7 +351,7 @@ class Main {
     }
 
     if (this.gameState === 'HOME') {
-      this.home.render(this.ctx, Store.data.chances);
+      this.home.render(this.ctx);
     } else if (this.gameState === 'RANK') {
       this.leaderboard.render(this.ctx, Store.getLeaderboardData());
     } else if (this.gameState === 'PAUSED') {

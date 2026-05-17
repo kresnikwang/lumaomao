@@ -38,14 +38,14 @@ export default class Home {
   }
   
   loadImages() {
-    const imageNames = ['bg_main', 'ui_logo', 'btn_brush', 'btn_pet', 'btn_rank', 'icon_energy'];
+    const imageNames = ['bg_main', 'ui_logo', 'btn_brush', 'btn_pet', 'btn_rank'];
     imageNames.forEach(name => {
       this.images[name] = wx.createImage();
       this.images[name].src = `assets/images/${name}.png`;
     });
   }
 
-  render(ctx, chances) {
+  render(ctx) {
     ctx.save();
     
     // Background
@@ -53,33 +53,28 @@ export default class Home {
     if (bgImg && bgImg.width > 0) {
       ctx.drawImage(bgImg, 0, 0, this.width, this.height);
     } else {
-      ctx.fillStyle = '#F5F5F5';
+      ctx.fillStyle = '#FFF8DC'; // Warmer background fallback
       ctx.fillRect(0, 0, this.width, this.height);
     }
     
     // Logo
     const logoImg = this.images['ui_logo'];
     if (logoImg && logoImg.width > 0) {
-      const logoW = 300;
-      const logoH = 150;
-      ctx.drawImage(logoImg, (this.width - logoW) / 2, 80, logoW, logoH);
+      const logoW = 320; // Slightly larger logo
+      const logoH = 160;
+      ctx.drawImage(logoImg, (this.width - logoW) / 2, 100, logoW, logoH);
     } else {
       ctx.fillStyle = '#333333';
-      ctx.font = 'bold 36px Arial';
+      ctx.font = 'bold 40px Arial';
       ctx.textAlign = 'center';
       ctx.fillText('撸猫猫中心', this.width / 2, this.height / 4);
     }
-
-    // Chances with icon
-    const energyImg = this.images['icon_energy'];
-    if (energyImg && energyImg.width > 0) {
-      ctx.drawImage(energyImg, this.width / 2 - 80, this.height / 4 + 40, 30, 30);
-    }
-    ctx.fillStyle = '#666666';
-    ctx.font = 'bold 22px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(`剩余次数: ${chances}`, this.width / 2 + 10, this.height / 4 + 62);
     
+    // Move buttons up slightly since energy text is gone
+    this.brushBtn.y = this.height / 2 - 40;
+    this.petBtn.y = this.height / 2 + 80;
+    this.rankBtn.y = this.height / 2 + 200;
+
     // Buttons with images
     this.drawImageButton(ctx, this.brushBtn, 'btn_brush');
     this.drawImageButton(ctx, this.petBtn, 'btn_pet');
