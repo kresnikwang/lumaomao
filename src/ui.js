@@ -55,7 +55,18 @@ export default class UI {
     // Draw Score with background
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.beginPath();
-    ctx.roundRect(this.width / 2 - 80, 15, 160, 45, 10);
+    const r = 10;
+    const x = this.width / 2 - 80, y = 15, w = 160, h = 45;
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
     ctx.fill();
     
     ctx.fillStyle = '#333333';
@@ -116,7 +127,18 @@ export default class UI {
       // Back to home button
       ctx.fillStyle = '#FF9800';
       ctx.beginPath();
-      ctx.roundRect(this.width / 2 - 90, this.height / 2 + 100, 180, 50, 12);
+      const r2 = 12;
+      const x2 = this.width / 2 - 90, y2 = this.height / 2 + 100, w2 = 180, h2 = 50;
+      ctx.moveTo(x2 + r2, y2);
+      ctx.lineTo(x2 + w2 - r2, y2);
+      ctx.quadraticCurveTo(x2 + w2, y2, x2 + w2, y2 + r2);
+      ctx.lineTo(x2 + w2, y2 + h2 - r2);
+      ctx.quadraticCurveTo(x2 + w2, y2 + h2, x2 + w2 - r2, y2 + h2);
+      ctx.lineTo(x2 + r2, y2 + h2);
+      ctx.quadraticCurveTo(x2, y2 + h2, x2, y2 + h2 - r2);
+      ctx.lineTo(x2, y2 + r2);
+      ctx.quadraticCurveTo(x2, y2, x2 + r2, y2);
+      ctx.closePath();
       ctx.fill();
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 22px Arial';

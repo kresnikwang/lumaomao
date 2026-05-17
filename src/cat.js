@@ -8,10 +8,16 @@ export const CAT_STATE = {
 
 export default class Cat {
   constructor(canvasWidth, canvasHeight) {
-    this.width = 240;
-    this.height = 240;
+    // Cat takes up ~70% of screen area
+    const targetArea = canvasWidth * canvasHeight * 0.7;
+    const aspectRatio = 1; // square cat
+    this.width = Math.floor(Math.sqrt(targetArea * aspectRatio));
+    this.height = this.width;
+    // Cap at 90% of screen dimensions
+    this.width = Math.min(this.width, Math.floor(canvasWidth * 0.9));
+    this.height = Math.min(this.height, Math.floor(canvasHeight * 0.8));
     this.x = (canvasWidth - this.width) / 2;
-    this.y = (canvasHeight - this.height) / 2 + 50;
+    this.y = (canvasHeight - this.height) / 2 + 30;
     this.state = CAT_STATE.IDLE;
     
     this.alertTimer = 0;
