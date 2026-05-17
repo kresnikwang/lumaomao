@@ -175,7 +175,7 @@ class Main {
       }
       
       // Update particles and tutorial
-      this.particles.update();
+      this.particles.update(this.frameInterval);
       this.tutorial.update(this.frameInterval);
       
       this.accumulator -= this.frameInterval;

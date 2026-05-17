@@ -121,7 +121,9 @@ export default class ParticleSystem {
   getRandomFurColor() {
     const colors = ['#F5DEB3', '#DEB887', '#D2B48C', '#BC8F8F', '#FFE4B5', '#FFEFD5'];
     return colors[Math.floor(Math.random() * colors.length)];
-  update() {
+  }
+
+  update(dt) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= p.decay;
@@ -145,13 +147,8 @@ export default class ParticleSystem {
   }
 
   render(ctx) {
-  ...
-  clear() {
-    while (this.particles.length > 0) {
-      this.recycleParticle(this.particles.pop());
-    }
-  }
-
+    for (const p of this.particles) {
+      ctx.save();
       ctx.globalAlpha = p.life;
 
       if (p.type === 'text') {
@@ -209,6 +206,8 @@ export default class ParticleSystem {
   }
 
   clear() {
-    this.particles = [];
+    while (this.particles.length > 0) {
+      this.recycleParticle(this.particles.pop());
+    }
   }
 }
