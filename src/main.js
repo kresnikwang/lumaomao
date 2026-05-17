@@ -261,6 +261,7 @@ class Main {
       );
       this.ui.triggerShake(5);
       AudioManager.playMeow();
+      this.cat.justGotPerfect = false; // Reset flag
     }
 
     if (isBrushing) {

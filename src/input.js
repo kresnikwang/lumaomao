@@ -104,16 +104,6 @@ export default class InputHandler {
     return this.isTouching && this.smoothedVelocity > this.minBrushVelocity;
   }
   
-  // Check if brushing velocity exceeds minimum threshold
-  isBrushing() {
-    return this.isTouching && this.smoothedVelocity > this.minBrushVelocity;
-  }
-  
-  // Check if brushing velocity exceeds minimum threshold
-  isBrushing() {
-    return this.isTouching && this.smoothedVelocity > this.minBrushVelocity;
-  }
-  
   getDominantDirection() {
     if (this.moveHistory.length === 0) return 'NONE';
     
