@@ -96,7 +96,7 @@ export default class ParticleSystem {
     return colors[Math.floor(Math.random() * colors.length)];
   }
 
-  update() {
+  update(dt) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= p.decay;
