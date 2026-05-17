@@ -14,6 +14,98 @@ export default class UI {
     // Red flash effect
     this.redFlashIntensity = 0;
     this.redFlashDecay = 0.95;
+
+    // Custom Modal state
+    this.modal = {
+      visible: false,
+      title: '',
+      content: '',
+      onConfirm: null,
+      onCancel: null
+    };
+  }
+
+  showModal(title, content, onConfirm, onCancel) {
+    this.modal.visible = true;
+    this.modal.title = title;
+    this.modal.content = content;
+    this.modal.onConfirm = onConfirm;
+    this.modal.onCancel = onCancel;
+  }
+
+  hideModal() {
+    this.modal.visible = false;
+  }
+
+  checkModalClick(x, y) {
+    if (!this.modal.visible) return false;
+
+    const modalW = 280;
+    const modalH = 200;
+    const modalX = (this.width - modalW) / 2;
+    const modalY = (this.height - modalH) / 2;
+
+    const btnW = 100;
+    const btnH = 40;
+    const btnY = modalY + modalH - 60;
+
+    const cancelX = modalX + 20;
+    const confirmX = modalX + modalW - btnW - 20;
+
+    // Check cancel
+    if (x >= cancelX && x <= cancelX + btnW && y >= btnY && y <= btnY + btnH) {
+      if (this.modal.onCancel) this.modal.onCancel();
+      this.hideModal();
+      return true;
+    }
+
+    // Check confirm
+    if (x >= confirmX && x <= confirmX + btnW && y >= btnY && y <= btnY + btnH) {
+      if (this.modal.onConfirm) this.modal.onConfirm();
+      this.hideModal();
+      return true;
+    }
+
+    // If clicked inside modal but not buttons, consume event
+    if (x >= modalX && x <= modalX + modalW && y >= modalY && y <= modalY + modalH) {
+      return true;
+    }
+
+    return false; // Clicked outside modal
+  }
+
+  drawBrushCursor(ctx, x, y) {
+    ctx.save();
+    ctx.translate(x, y);
+    // Draw a cute transparent comb using canvas
+    ctx.fillStyle = '#FF9800'; // Comb body
+    this.roundRect(ctx, -25, -15, 50, 15, 5);
+    ctx.fill();
+    
+    // Draw comb teeth
+    ctx.fillStyle = '#E65100';
+    for (let i = -20; i <= 20; i += 6) {
+      ctx.fillRect(i, 0, 4, 18);
+      // rounded tips
+      ctx.beginPath();
+      ctx.arc(i + 2, 18, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  roundRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
   }
 
   triggerShake(intensity = 10) {
@@ -111,9 +203,11 @@ export default class UI {
 
       // Game Over Text
       const isTimeUp = extraInfo.isPetMode && extraInfo.timeRemaining === 0;
+      ctx.textAlign = 'center';
       ctx.fillStyle = '#FF4444';
       ctx.font = 'bold 52px Arial';
       ctx.fillText(isTimeUp ? '时间到!' : '被咬了!', this.width / 2, this.height / 2 - 30);
+
       
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '22px Arial';
@@ -158,6 +252,64 @@ export default class UI {
       ctx.fillRect(0, 0, this.width, this.height);
     }
 
+    // Render custom modal if visible
+    if (this.modal.visible) {
+      this.renderModal(ctx);
+    }
+
     ctx.restore();
+  }
+
+  renderModal(ctx) {
+    // Dim background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    const modalW = 280;
+    const modalH = 200;
+    const modalX = (this.width - modalW) / 2;
+    const modalY = (this.height - modalH) / 2;
+
+    // Modal background
+    ctx.fillStyle = '#FFF8DC'; // Warm game-themed color instead of pure white
+    this.roundRect(ctx, modalX, modalY, modalW, modalH, 15);
+    ctx.fill();
+
+    // Title
+    ctx.fillStyle = '#333333';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(this.modal.title, this.width / 2, modalY + 45);
+
+    // Content (multi-line simple support)
+    ctx.fillStyle = '#666666';
+    ctx.font = '16px Arial';
+    const lines = this.modal.content.split('\n');
+    lines.forEach((line, i) => {
+      ctx.fillText(line, this.width / 2, modalY + 90 + i * 25);
+    });
+
+    // Buttons
+    const btnW = 100;
+    const btnH = 40;
+    const btnY = modalY + modalH - 60;
+    const cancelX = modalX + 20;
+    const confirmX = modalX + modalW - btnW - 20;
+
+    // Cancel Button
+    ctx.fillStyle = '#EEEEEE';
+    this.roundRect(ctx, cancelX, btnY, btnW, btnH, 8);
+    ctx.fill();
+    ctx.fillStyle = '#666666';
+    ctx.font = '16px Arial';
+    ctx.fillText('取消', cancelX + btnW / 2, btnY + 26);
+
+    // Confirm Button
+    ctx.fillStyle = '#FF9800';
+    this.roundRect(ctx, confirmX, btnY, btnW, btnH, 8);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 16px Arial';
+    ctx.fillText('看广告', confirmX + btnW / 2, btnY + 26);
   }
 }

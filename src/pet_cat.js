@@ -66,18 +66,20 @@ export default class PetCat {
   }
 
   randomizeSpots() {
+    const w = this.width;
+    const h = this.height;
     // Sweet spots (Head, Chin) - slightly randomized positions
-    const headOffset = (Math.random() - 0.5) * 30;
-    const chinOffset = (Math.random() - 0.5) * 20;
+    const headOffset = (Math.random() - 0.5) * (w * 0.1);
+    const chinOffset = (Math.random() - 0.5) * (w * 0.05);
     this.sweetSpots = [
-      { x: headOffset, y: -60 + (Math.random() - 0.5) * 20, r: 45 + Math.random() * 10 },
-      { x: chinOffset, y: 40 + (Math.random() - 0.5) * 15, r: 35 + Math.random() * 10 }
+      { x: headOffset, y: -h * 0.25 + (Math.random() - 0.5) * (h * 0.05), r: w * 0.2 },
+      { x: chinOffset, y: h * 0.1 + (Math.random() - 0.5) * (h * 0.05), r: w * 0.15 }
     ];
     
     // Sensitive spots (Belly areas) - randomized
     this.sensitiveSpots = [
-      { x: -50 + (Math.random() - 0.5) * 30, y: 60 + (Math.random() - 0.5) * 20, r: 35 + Math.random() * 10 },
-      { x: 50 + (Math.random() - 0.5) * 30, y: 60 + (Math.random() - 0.5) * 20, r: 35 + Math.random() * 10 }
+      { x: -w * 0.2 + (Math.random() - 0.5) * (w * 0.1), y: h * 0.25 + (Math.random() - 0.5) * (h * 0.05), r: w * 0.15 },
+      { x: w * 0.2 + (Math.random() - 0.5) * (w * 0.1), y: h * 0.25 + (Math.random() - 0.5) * (h * 0.05), r: w * 0.15 }
     ];
   }
 
@@ -99,7 +101,7 @@ export default class PetCat {
       }
     }
 
-    if (input.isTouching && input.isMoving) {
+    if (input.isTouching && input.velocity > 0) {
       this.checkPetting(input.lastX, input.lastY, input.velocity);
     }
   }

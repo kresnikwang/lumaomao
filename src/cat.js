@@ -178,7 +178,15 @@ export default class Cat {
     
     const img = this.images[imageName];
     if (img && img.width > 0) {
-      ctx.drawImage(img, this.x, this.y, this.width, this.height);
+      if (imageName === 'brush_idle') {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, -this.width / 2, -this.height / 2, this.width, this.height);
+        ctx.restore();
+      } else {
+        ctx.drawImage(img, this.x, this.y, this.width, this.height);
+      }
     } else {
       // Fallback: draw colored rectangle
       let color = '#CCCCCC';

@@ -86,7 +86,15 @@ class Main {
       const x = touch.clientX;
       const y = touch.clientY;
 
+      // Check modal clicks first
+      if (this.ui.modal.visible) {
+        if (this.ui.checkModalClick(x, y)) {
+          return;
+        }
+      }
+
       // Check pause button first (during gameplay)
+
       if ((this.gameState === 'PLAYING' || this.gameState === 'PET_GAME') &&
           x >= this.pauseBtn.x && x <= this.pauseBtn.x + this.pauseBtn.width &&
           y >= this.pauseBtn.y && y <= this.pauseBtn.y + this.pauseBtn.height) {
@@ -158,17 +166,14 @@ class Main {
   }
 
   showAdRefillDialog() {
-    wx.showModal({
-      title: '次数不足',
-      content: '观看一个短视频广告即可获得3次游玩机会！',
-      confirmText: '看广告',
-      cancelText: '取消',
-      success: (res) => {
-        if (res.confirm) {
-          this.mockWatchAd();
-        }
-      }
-    });
+    this.ui.showModal(
+      '次数不足',
+      '观看一个短视频广告即可\n获得3次游玩机会！',
+      () => {
+        this.mockWatchAd();
+      },
+      () => {}
+    );
   }
 
   mockWatchAd() {
@@ -413,6 +418,9 @@ class Main {
       // Draw pause button during gameplay
       if (this.gameState === 'PLAYING') {
         this.renderPauseButton();
+        if (this.input.isTouching) {
+          this.ui.drawBrushCursor(this.ctx, this.input.lastX, this.input.lastY);
+        }
       }
     }
     
