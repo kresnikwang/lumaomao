@@ -1,3 +1,5 @@
+import { CONFIG } from './config.js';
+
 export const CAT_STATE = {
   IDLE: 'IDLE',
   BRUSHING: 'BRUSHING',
@@ -8,8 +10,8 @@ export const CAT_STATE = {
 
 export default class Cat {
   constructor(canvasWidth, canvasHeight) {
-    this.width = 240;
-    this.height = 240;
+    this.width = CONFIG.CAT.WIDTH;
+    this.height = CONFIG.CAT.HEIGHT;
     this.x = (canvasWidth - this.width) / 2;
     this.y = (canvasHeight - this.height) / 2 + 50;
     this.state = CAT_STATE.IDLE;
@@ -25,12 +27,13 @@ export default class Cat {
     
     // Difficulty scaling
     this.difficultyLevel = 1;
-    this.scoreThreshold = 50; // Increase difficulty every 50 points
+    this.scoreThreshold = CONFIG.CAT.SCORE_THRESHOLD;
     
     // Perfect timing
-    this.perfectWindow = 200; // ms after alert starts where stopping = perfect
+    this.perfectWindow = CONFIG.CAT.PERFECT_WINDOW;
     this.alertStartTime = 0;
     this.perfectStops = 0;
+    this.justGotPerfect = false;
     
     // Load images
     this.images = {};
@@ -87,6 +90,8 @@ export default class Cat {
   update(dt, isBrushing, score = 0) {
     if (this.state === CAT_STATE.BITING) return;
 
+    this.justGotPerfect = false;
+
     // Update difficulty based on score
     this.updateDifficulty(score);
 
@@ -102,7 +107,7 @@ export default class Cat {
       if (isBrushing) {
         this.state = CAT_STATE.BRUSHING;
         // Maintain combo while brushing
-        this.comboTimer = 1500; // 1.5s window to maintain combo
+        this.comboTimer = CONFIG.CAT.COMBO_WINDOW;
       } else {
         this.state = CAT_STATE.IDLE;
       }
@@ -121,8 +126,9 @@ export default class Cat {
         const elapsed = Date.now() - this.alertStartTime;
         if (elapsed < this.perfectWindow) {
           this.perfectStops++;
-          this.combo = Math.min(this.combo + 2, 20); // Perfect gives +2 combo
+          this.combo = Math.min(this.combo + 2, CONFIG.CAT.MAX_COMBO); // Perfect gives +2 combo
           this.comboTimer = 2000;
+          this.justGotPerfect = true;
         }
         this.alertStartTime = 0; // Reset to prevent multiple triggers
       }
@@ -137,8 +143,8 @@ export default class Cat {
         this.state = CAT_STATE.IDLE;
         this.nextEventTimer = this.getNextEventDelay();
         // Successful survival gives combo
-        this.combo = Math.min(this.combo + 1, 20);
-        this.comboTimer = 1500;
+        this.combo = Math.min(this.combo + 1, CONFIG.CAT.MAX_COMBO);
+        this.comboTimer = CONFIG.CAT.COMBO_WINDOW;
       }
     }
   }

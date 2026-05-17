@@ -12,10 +12,21 @@ class AudioManager {
   init() {
     if (this.initialized) return;
     try {
-      this.ctx = wx.createInnerAudioContext ? null : new (wx.createInnerAudioContext || AudioContext)();
-      this.initialized = true;
+      // In WeChat, wx.getWebAudioContext is the preferred way for synthesized sound
+      if (typeof wx !== 'undefined' && wx.getWebAudioContext) {
+        this.ctx = wx.getWebAudioContext();
+      } else if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      this.initialized = !!this.ctx;
     } catch (e) {
-      console.log('Audio not supported');
+      console.log('Audio not supported:', e);
+    }
+  }
+
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
     }
   }
 

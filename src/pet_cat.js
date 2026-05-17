@@ -1,3 +1,5 @@
+import { CONFIG } from './config.js';
+
 export const PET_STATE = {
   RELAXED: 'RELAXED',
   HAPPY: 'HAPPY',
@@ -7,8 +9,8 @@ export const PET_STATE = {
 
 export default class PetCat {
   constructor(canvasWidth, canvasHeight) {
-    this.width = 240;
-    this.height = 240;
+    this.width = CONFIG.CAT.WIDTH;
+    this.height = CONFIG.CAT.HEIGHT;
     this.x = (canvasWidth - this.width) / 2;
     this.y = (canvasHeight - this.height) / 2 + 50;
     

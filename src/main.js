@@ -8,6 +8,7 @@ import Leaderboard from './leaderboard.js';
 import AudioManager from './audio.js';
 import ParticleSystem from './particles.js';
 import Tutorial from './tutorial.js';
+import { CONFIG } from './config.js';
 
 class Main {
   constructor() {
@@ -31,7 +32,7 @@ class Main {
     
     // Frame rate control
     this.lastTime = Date.now();
-    this.targetFPS = 60;
+    this.targetFPS = CONFIG.CANVAS.TARGET_FPS;
     this.frameInterval = 1000 / this.targetFPS;
     this.accumulator = 0;
     
@@ -48,6 +49,9 @@ class Main {
 
   bindEvents() {
     wx.onTouchStart((res) => {
+      // Resume audio context on first interaction
+      AudioManager.resume();
+      
       const touch = res.touches[0];
       const x = touch.clientX;
       const y = touch.clientY;
@@ -184,6 +188,19 @@ class Main {
     const prevScore = this.score;
     this.cat.update(dt, isBrushing, this.score);
 
+    // Visual feedback for perfect stop
+    if (this.cat.justGotPerfect) {
+      this.particles.spawnScorePopup(
+        this.cat.x + this.cat.width / 2,
+        this.cat.y - 60,
+        0,
+        false,
+        'PERFECT!'
+      );
+      this.ui.triggerShake(5);
+      AudioManager.playMeow();
+    }
+
     if (isBrushing) {
       if (this.cat.state === CAT_STATE.LOOKING) {
         this.gameState = 'GAMEOVER';
@@ -204,7 +221,7 @@ class Main {
         this.score += scoreGain;
         
         // Spawn fur particles
-        if (Math.random() < 0.3) {
+        if (Math.random() < CONFIG.PARTICLES.FUR_SPAWN_CHANCE) {
           this.particles.spawnFur(
             this.cat.x + this.cat.width / 2,
             this.cat.y + this.cat.height / 2
