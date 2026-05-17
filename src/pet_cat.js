@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import ImageCache from './imageCache.js';
 
 export const PET_STATE = {
   RELAXED: 'RELAXED',
@@ -9,20 +10,20 @@ export const PET_STATE = {
 
 export default class PetCat {
   constructor(canvasWidth, canvasHeight) {
-    // Cat takes up ~70% of screen area
-    const targetArea = canvasWidth * canvasHeight * 0.7;
+    // Cat takes up ~75% of screen area (same as brush mode)
+    const targetArea = canvasWidth * canvasHeight * 0.75;
     const aspectRatio = 1; // square cat
     this.width = Math.floor(Math.sqrt(targetArea * aspectRatio));
     this.height = this.width;
     // Cap at 90% of screen dimensions
     this.width = Math.min(this.width, Math.floor(canvasWidth * 0.9));
-    this.height = Math.min(this.height, Math.floor(canvasHeight * 0.8));
+    this.height = Math.min(this.height, Math.floor(canvasHeight * 0.85));
     this.x = (canvasWidth - this.width) / 2;
-    this.y = (canvasHeight - this.height) / 2 + 30;
+    this.y = (canvasHeight - this.height) / 2 + 20;
     
     this.reset();
     
-    // Load images
+    // Load images via cache
     this.images = {};
     this.imageLoaded = false;
     this.loadImages();
@@ -33,18 +34,16 @@ export default class PetCat {
     let loadedCount = 0;
     
     imageNames.forEach(name => {
-      this.images[name] = wx.createImage();
-      this.images[name].onload = () => {
+      ImageCache.load(`assets/images/${name}.png`).then(img => {
+        this.images[name] = img;
         loadedCount++;
         if (loadedCount === imageNames.length) {
           this.imageLoaded = true;
         }
-      };
-      this.images[name].onerror = () => {
+      }).catch(() => {
         console.warn(`Failed to load image: ${name}`);
         loadedCount++;
-      };
-      this.images[name].src = `assets/images/${name}.png`;
+      });
     });
   }
 
@@ -216,8 +215,7 @@ export default class PetCat {
       this.drawFace(ctx);
     }
 
-    // Draw spot indicators (subtle hints)
-    this.drawSpotHints(ctx);
+    // Spot hints removed - let players explore
 
     // Draw Warnings UI
     this.drawWarnings(ctx);
@@ -226,21 +224,6 @@ export default class PetCat {
     this.drawTimer(ctx);
 
     ctx.restore();
-  }
-
-  drawSpotHints(ctx) {
-    // Draw subtle circles for sweet spots (very faint)
-    ctx.globalAlpha = 0.15;
-    ctx.strokeStyle = '#4CAF50';
-    ctx.lineWidth = 2;
-    
-    for (let spot of this.sweetSpots) {
-      ctx.beginPath();
-      ctx.arc(this.x + this.width / 2 + spot.x, this.y + this.height / 2 + spot.y, spot.r, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    
-    ctx.globalAlpha = 1.0;
   }
 
   drawTimer(ctx) {

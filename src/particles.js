@@ -1,16 +1,17 @@
 /**
- * Particle system for visual effects with object pooling
+ * Particle system with object pooling for performance
  */
 import { CONFIG } from './config.js';
 
 export default class ParticleSystem {
-  constructor() {
+  constructor(maxPoolSize = CONFIG.PARTICLES.MAX_COUNT || 200) {
     this.particles = [];
-    this.pool = [];
-    this.maxCount = CONFIG.PARTICLES.MAX_COUNT;
+    this.maxPoolSize = maxPoolSize;
+    this.pool = []; // Object pool for reuse
+    this.activeCount = 0;
   }
 
-  // Get a particle from the pool or create a new one
+  // Get a particle from pool or create new
   getParticle() {
     if (this.pool.length > 0) {
       return this.pool.pop();
@@ -18,20 +19,22 @@ export default class ParticleSystem {
     return {};
   }
 
-  // Return a particle to the pool
+  // Return particle to pool
   recycleParticle(p) {
-    // Reset object properties for next use
-    for (let key in p) delete p[key];
-    if (this.pool.length < this.maxCount) {
+    if (this.pool.length < this.maxPoolSize) {
+      // Clear object properties for reuse
+      for (let key in p) {
+        delete p[key];
+      }
       this.pool.push(p);
     }
   }
 
   // Create fur particles when brushing
   spawnFur(x, y, count = 3) {
-    if (this.particles.length >= this.maxCount) return;
-
     for (let i = 0; i < count; i++) {
+      if (this.activeCount >= this.maxPoolSize) break;
+      
       const p = this.getParticle();
       p.x = x + (Math.random() - 0.5) * 60;
       p.y = y + (Math.random() - 0.5) * 40;
@@ -44,12 +47,17 @@ export default class ParticleSystem {
       p.rotation = Math.random() * Math.PI * 2;
       p.rotationSpeed = (Math.random() - 0.5) * 0.2;
       p.type = 'fur';
+      p.active = true;
+      
       this.particles.push(p);
+      this.activeCount++;
     }
   }
 
   // Create score popup particles
   spawnScorePopup(x, y, score, isCombo = false, specialText = null) {
+    if (this.activeCount >= this.maxPoolSize) return;
+    
     const p = this.getParticle();
     p.x = x;
     p.y = y;
@@ -57,22 +65,29 @@ export default class ParticleSystem {
     p.vy = -2;
     p.life = 1.0;
     p.decay = 0.015;
-    p.size = isCombo ? 28 : 22;
-    p.color = isCombo ? CONFIG.COLORS.PRIMARY : CONFIG.COLORS.SECONDARY;
-    p.text = specialText || (isCombo ? `${score}x 连击!` : `+${Math.floor(score)}`);
-    p.type = 'text';
     
     if (specialText) {
       p.size = 36;
       p.color = CONFIG.COLORS.SUCCESS;
+      p.text = specialText;
       p.decay = 0.01;
+    } else {
+      p.size = isCombo ? 28 : 22;
+      p.color = isCombo ? CONFIG.COLORS.PRIMARY : CONFIG.COLORS.SECONDARY;
+      p.text = isCombo ? `${score}x 连击!` : `+${Math.floor(score)}`;
     }
     
+    p.type = 'text';
+    p.active = true;
+    
     this.particles.push(p);
+    this.activeCount++;
   }
 
   // Create red flash effect when bitten
   spawnRedFlash(width, height) {
+    if (this.activeCount >= this.maxPoolSize) return;
+    
     const p = this.getParticle();
     p.x = 0;
     p.y = 0;
@@ -82,12 +97,17 @@ export default class ParticleSystem {
     p.decay = 0.05;
     p.color = 'rgba(255, 0, 0, 0.3)';
     p.type = 'flash';
+    p.active = true;
+    
     this.particles.push(p);
+    this.activeCount++;
   }
 
   // Create heart particles for happy petting
   spawnHearts(x, y, count = 2) {
     for (let i = 0; i < count; i++) {
+      if (this.activeCount >= this.maxPoolSize) break;
+      
       const p = this.getParticle();
       p.x = x + (Math.random() - 0.5) * 40;
       p.y = y + (Math.random() - 0.5) * 20;
@@ -98,12 +118,17 @@ export default class ParticleSystem {
       p.size = 12 + Math.random() * 8;
       p.color = '#FF69B4';
       p.type = 'heart';
+      p.active = true;
+      
       this.particles.push(p);
+      this.activeCount++;
     }
   }
 
   // Create warning particles
   spawnWarning(x, y) {
+    if (this.activeCount >= this.maxPoolSize) return;
+    
     const p = this.getParticle();
     p.x = x;
     p.y = y;
@@ -112,10 +137,13 @@ export default class ParticleSystem {
     p.life = 1.0;
     p.decay = 0.025;
     p.size = 20;
-    p.color = CONFIG.COLORS.DANGER;
+    p.color = CONFIG.COLORS.DANGER || '#FF4444';
     p.text = '!';
     p.type = 'text';
+    p.active = true;
+    
     this.particles.push(p);
+    this.activeCount++;
   }
 
   getRandomFurColor() {
@@ -124,12 +152,20 @@ export default class ParticleSystem {
   }
 
   update(dt) {
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i];
+    // Use index-based iteration for O(1) removal
+    let writeIndex = 0;
+    
+    for (let readIndex = 0; readIndex < this.particles.length; readIndex++) {
+      const p = this.particles[readIndex];
+      
+      if (!p.active) continue;
+      
       p.life -= p.decay;
 
       if (p.life <= 0) {
-        this.recycleParticle(this.particles.splice(i, 1)[0]);
+        p.active = false;
+        this.recycleParticle(p);
+        this.activeCount--;
         continue;
       }
 
@@ -143,11 +179,19 @@ export default class ParticleSystem {
         p.vy += 0.02; // gravity
         p.vx *= 0.99; // air resistance
       }
+      
+      // Keep active particles at the front
+      this.particles[writeIndex++] = p;
     }
+    
+    // Trim array to active particles only
+    this.particles.length = writeIndex;
   }
 
   render(ctx) {
     for (const p of this.particles) {
+      if (!p.active) continue;
+      
       ctx.save();
       ctx.globalAlpha = p.life;
 
@@ -206,8 +250,14 @@ export default class ParticleSystem {
   }
 
   clear() {
-    while (this.particles.length > 0) {
-      this.recycleParticle(this.particles.pop());
+    // Recycle all particles
+    for (const p of this.particles) {
+      if (p.active) {
+        p.active = false;
+        this.recycleParticle(p);
+      }
     }
+    this.particles = [];
+    this.activeCount = 0;
   }
 }

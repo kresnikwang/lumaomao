@@ -14,6 +14,9 @@ export default class InputHandler {
     // Smoothing
     this.smoothedVelocity = 0;
     this.velocitySmoothing = 0.3;
+    
+    // Minimum velocity threshold for brushing
+    this.minBrushVelocity = 5;
 
     wx.onTouchStart(this.handleTouchStart.bind(this));
     wx.onTouchMove(this.handleTouchMove.bind(this));
@@ -94,6 +97,21 @@ export default class InputHandler {
       this.smoothedVelocity *= 0.8;
     }
     this.isMoving = false; // Reset for next frame
+  }
+  
+  // Check if brushing velocity exceeds minimum threshold
+  isBrushing() {
+    return this.isTouching && this.smoothedVelocity > this.minBrushVelocity;
+  }
+  
+  // Check if brushing velocity exceeds minimum threshold
+  isBrushing() {
+    return this.isTouching && this.smoothedVelocity > this.minBrushVelocity;
+  }
+  
+  // Check if brushing velocity exceeds minimum threshold
+  isBrushing() {
+    return this.isTouching && this.smoothedVelocity > this.minBrushVelocity;
   }
   
   getDominantDirection() {

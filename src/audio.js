@@ -1,32 +1,75 @@
 /**
- * Simple audio synthesizer for game sound effects
- * Uses Web Audio API to generate sounds programmatically
+ * Audio manager using WeChat Mini Game API
+ * Falls back to Web Audio API if wx.createInnerAudioContext is not available
  */
 
 class AudioManager {
   constructor() {
-    this.ctx = null;
     this.initialized = false;
+    // Use WeChat's inner audio context when available
+    this.useWxAudio = typeof wx !== 'undefined' && wx.createInnerAudioContext;
+    // Pool of audio contexts for overlapping sounds
+    this.audioPool = [];
+    this.poolSize = 5;
+    this.poolIndex = 0;
+    // Web Audio fallback
+    this.webAudioCtx = null;
   }
 
   init() {
     if (this.initialized) return;
-    try {
-      // In WeChat, wx.getWebAudioContext is the preferred way for synthesized sound
-      if (typeof wx !== 'undefined' && wx.getWebAudioContext) {
-        this.ctx = wx.getWebAudioContext();
-      } else if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    if (this.useWxAudio) {
+      // Pre-create pool of audio contexts
+      for (let i = 0; i < this.poolSize; i++) {
+        this.audioPool.push(wx.createInnerAudioContext());
       }
-      this.initialized = !!this.ctx;
-    } catch (e) {
-      console.log('Audio not supported:', e);
+    } else {
+      // Fallback to Web Audio API
+      try {
+        if (typeof wx !== 'undefined' && wx.getWebAudioContext) {
+          this.webAudioCtx = wx.getWebAudioContext();
+        } else if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
+          this.webAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      } catch (e) {
+        console.log('Web Audio not supported');
+      }
     }
+    
+    this.initialized = true;
   }
 
   resume() {
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+    if (this.webAudioCtx && this.webAudioCtx.state === 'suspended') {
+      this.webAudioCtx.resume();
+    }
+  }
+
+  // Get next available audio context from pool
+  getAudioCtx() {
+    if (!this.useWxAudio) return null;
+    const ctx = this.audioPool[this.poolIndex];
+    this.poolIndex = (this.poolIndex + 1) % this.poolSize;
+    // Stop previous sound if playing
+    ctx.stop();
+    return ctx;
+  }
+
+  // Play a sound using WeChat API or fallback
+  playSound(src, volume = 1.0) {
+    if (!this.initialized) return;
+    
+    if (this.useWxAudio) {
+      const audio = this.getAudioCtx();
+      if (audio) {
+        audio.src = src;
+        audio.volume = volume;
+        audio.play();
+      }
+    } else {
+      // Web Audio fallback - generate tones
+      this.playTone(440, 0.1, 'sine', volume * 0.3);
     }
   }
 
@@ -64,45 +107,60 @@ class AudioManager {
   }
 
   playTone(freq, duration, type = 'sine', volume = 0.3) {
-    if (!this.ctx) return;
+    if (!this.webAudioCtx) return;
     
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
+    const osc = this.webAudioCtx.createOscillator();
+    const gain = this.webAudioCtx.createGain();
     
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+    osc.frequency.setValueAtTime(freq, this.webAudioCtx.currentTime);
     
-    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+    gain.gain.setValueAtTime(volume, this.webAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.webAudioCtx.currentTime + duration);
     
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.webAudioCtx.destination);
     
-    osc.start(this.ctx.currentTime);
-    osc.stop(this.ctx.currentTime + duration);
+    osc.start(this.webAudioCtx.currentTime);
+    osc.stop(this.webAudioCtx.currentTime + duration);
   }
 
   playNoise(duration, volume = 0.2) {
-    if (!this.ctx) return;
+    if (!this.webAudioCtx) return;
     
-    const bufferSize = this.ctx.sampleRate * duration;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const bufferSize = this.webAudioCtx.sampleRate * duration;
+    const buffer = this.webAudioCtx.createBuffer(1, bufferSize, this.webAudioCtx.sampleRate);
     const data = buffer.getChannelData(0);
     
     for (let i = 0; i < bufferSize; i++) {
       data[i] = Math.random() * 2 - 1;
     }
     
-    const noise = this.ctx.createBufferSource();
+    const noise = this.webAudioCtx.createBufferSource();
     noise.buffer = buffer;
     
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+    const gain = this.webAudioCtx.createGain();
+    gain.gain.setValueAtTime(volume, this.webAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.webAudioCtx.currentTime + duration);
     
     noise.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.webAudioCtx.destination);
     noise.start();
+  }
+
+  // Clean up audio resources
+  destroy() {
+    if (this.useWxAudio) {
+      this.audioPool.forEach(audio => {
+        audio.destroy && audio.destroy();
+      });
+      this.audioPool = [];
+    }
+    if (this.webAudioCtx) {
+      this.webAudioCtx.close();
+      this.webAudioCtx = null;
+    }
+    this.initialized = false;
   }
 }
 
