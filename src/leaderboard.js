@@ -77,8 +77,19 @@ export default class Leaderboard {
 
     // Back Button
     ctx.fillStyle = '#FF9800';
+    const r = 10;
+    const bx = this.backBtn.x, by = this.backBtn.y, bw = this.backBtn.width, bh = this.backBtn.height;
     ctx.beginPath();
-    ctx.roundRect(this.backBtn.x, this.backBtn.y, this.backBtn.width, this.backBtn.height, 10);
+    ctx.moveTo(bx + r, by);
+    ctx.lineTo(bx + bw - r, by);
+    ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+    ctx.lineTo(bx + bw, by + bh - r);
+    ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+    ctx.lineTo(bx + r, by + bh);
+    ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
+    ctx.lineTo(bx, by + r);
+    ctx.quadraticCurveTo(bx, by, bx + r, by);
+    ctx.closePath();
     ctx.fill();
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 18px Arial';

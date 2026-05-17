@@ -1,3 +1,5 @@
+import ImageCache from './imageCache.js';
+
 export const PET_STATE = {
   RELAXED: 'RELAXED',
   HAPPY: 'HAPPY',
@@ -20,7 +22,7 @@ export default class PetCat {
     
     this.reset();
     
-    // Load images
+    // Load images via cache
     this.images = {};
     this.imageLoaded = false;
     this.loadImages();
@@ -31,18 +33,16 @@ export default class PetCat {
     let loadedCount = 0;
     
     imageNames.forEach(name => {
-      this.images[name] = wx.createImage();
-      this.images[name].onload = () => {
+      ImageCache.load(`assets/images/${name}.png`).then(img => {
+        this.images[name] = img;
         loadedCount++;
         if (loadedCount === imageNames.length) {
           this.imageLoaded = true;
         }
-      };
-      this.images[name].onerror = () => {
+      }).catch(() => {
         console.warn(`Failed to load image: ${name}`);
         loadedCount++;
-      };
-      this.images[name].src = `assets/images/${name}.png`;
+      });
     });
   }
 

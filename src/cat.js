@@ -6,6 +6,8 @@ export const CAT_STATE = {
   BITING: 'BITING'
 };
 
+import ImageCache from './imageCache.js';
+
 export default class Cat {
   constructor(canvasWidth, canvasHeight) {
     // Cat takes up ~75% of screen area
@@ -38,7 +40,7 @@ export default class Cat {
     this.alertStartTime = 0;
     this.perfectStops = 0;
     
-    // Load images
+    // Load images via cache
     this.images = {};
     this.imageLoaded = false;
     this.loadImages();
@@ -49,18 +51,16 @@ export default class Cat {
     let loadedCount = 0;
     
     imageNames.forEach(name => {
-      this.images[name] = wx.createImage();
-      this.images[name].onload = () => {
+      ImageCache.load(`assets/images/${name}.png`).then(img => {
+        this.images[name] = img;
         loadedCount++;
         if (loadedCount === imageNames.length) {
           this.imageLoaded = true;
         }
-      };
-      this.images[name].onerror = () => {
+      }).catch(() => {
         console.warn(`Failed to load image: ${name}`);
         loadedCount++;
-      };
-      this.images[name].src = `assets/images/${name}.png`;
+      });
     });
   }
 
