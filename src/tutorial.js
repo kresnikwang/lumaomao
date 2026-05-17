@@ -120,7 +120,18 @@ export default class Tutorial {
     // Continue button
     ctx.fillStyle = '#4CAF50';
     ctx.beginPath();
-    ctx.roundRect(centerX - 80, this.height - 120, 160, 50, 12);
+    const r = 12;
+    const x = centerX - 80, y = this.height - 120, w = 160, h = 50;
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
     ctx.fill();
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 20px Arial';
