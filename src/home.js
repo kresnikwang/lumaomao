@@ -76,21 +76,24 @@ export default class Home {
     
     // Logo
     const logoImg = this.images['ui_logo'];
+    const logoSize = 160;
+    const logoY = 80;
     if (logoImg && logoImg.width > 0) {
-      const logoW = 320; // Slightly larger logo
-      const logoH = 160;
-      ctx.drawImage(logoImg, (this.width - logoW) / 2, 100, logoW, logoH);
-    } else {
-      ctx.fillStyle = '#333333';
-      ctx.font = 'bold 40px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('撸猫猫中心', this.width / 2, this.height / 4);
+      ctx.drawImage(logoImg, (this.width - logoSize) / 2, logoY, logoSize, logoSize);
     }
+    // Always draw game title text
+    ctx.fillStyle = '#FF9800';
+    ctx.font = 'bold 44px Arial';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.strokeText('撸猫猫中心', this.width / 2, logoY + logoSize + 60);
+    ctx.fillText('撸猫猫中心', this.width / 2, logoY + logoSize + 60);
     
-    // Move buttons up slightly since energy text is gone
-    this.brushBtn.y = this.height / 2 - 40;
-    this.petBtn.y = this.height / 2 + 80;
-    this.rankBtn.y = this.height / 2 + 200;
+    // Adjust button positions based on new logo and title
+    this.brushBtn.y = this.height / 2 + 20;
+    this.petBtn.y = this.height / 2 + 130;
+    this.rankBtn.y = this.height / 2 + 240;
 
     // Buttons with images
     this.drawImageButton(ctx, this.brushBtn, 'btn_brush');
@@ -101,19 +104,30 @@ export default class Home {
   }
   
   drawImageButton(ctx, btn, imageName) {
+    // Draw uniform button background
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.beginPath();
+    this.roundRect(ctx, btn.x, btn.y, btn.width, btn.height, 25);
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#FFCC88';
+    ctx.stroke();
+
     const img = this.images[imageName];
     if (img && img.width > 0) {
-      ctx.drawImage(img, btn.x, btn.y, btn.width, btn.height);
-    } else {
-      // Fallback
-      ctx.fillStyle = '#4CAF50';
-      ctx.fillRect(btn.x, btn.y, btn.width, btn.height);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(btn.label, btn.x + btn.width / 2, btn.y + btn.height / 2);
+      // Draw icon (square) on the left
+      const iconSize = 64;
+      const iconX = btn.x + 20;
+      const iconY = btn.y + (btn.height - iconSize) / 2;
+      ctx.drawImage(img, iconX, iconY, iconSize, iconSize);
     }
+
+    // Draw text
+    ctx.fillStyle = '#FF9800';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(btn.label, btn.x + btn.width / 2 + 25, btn.y + btn.height / 2);
   }
 
 
