@@ -24,17 +24,17 @@ class AudioManager {
       for (let i = 0; i < this.poolSize; i++) {
         this.audioPool.push(wx.createInnerAudioContext());
       }
-    } else {
-      // Fallback to Web Audio API
-      try {
-        if (typeof wx !== 'undefined' && wx.getWebAudioContext) {
-          this.webAudioCtx = wx.getWebAudioContext();
-        } else if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
-          this.webAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-      } catch (e) {
-        console.log('Web Audio not supported');
+    }
+    
+    // Always initialize Web Audio API for synthesized sounds
+    try {
+      if (typeof wx !== 'undefined' && wx.getWebAudioContext) {
+        this.webAudioCtx = wx.getWebAudioContext();
+      } else if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
+        this.webAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
+    } catch (e) {
+      console.log('Web Audio not supported');
     }
     
     this.initialized = true;
