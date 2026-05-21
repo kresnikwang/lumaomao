@@ -1,8 +1,10 @@
 const STORAGE_KEYS = {
   BRUSH_TOTAL_SCORE: 'lumaomao_brush_total',
   PET_TOTAL_SCORE: 'lumaomao_pet_total',
+  NAIL_TOTAL_SCORE: 'lumaomao_nail_total',
   BRUSH_HIGH_SCORE: 'lumaomao_brush_high',
   PET_HIGH_SCORE: 'lumaomao_pet_high',
+  NAIL_HIGH_SCORE: 'lumaomao_nail_high',
   CHECKSUM: 'lumaomao_checksum'
 };
 
@@ -11,15 +13,17 @@ class Store {
     this.data = {
       brushTotal: 0,
       petTotal: 0,
+      nailTotal: 0,
       brushHigh: 0,
-      petHigh: 0
+      petHigh: 0,
+      nailHigh: 0
     };
     this.init();
   }
 
   // Simple checksum to detect tampering
   calculateChecksum() {
-    const dataStr = `${this.data.brushTotal}|${this.data.petTotal}|${this.data.brushHigh}|${this.data.petHigh}`;
+    const dataStr = `${this.data.brushTotal}|${this.data.petTotal}|${this.data.nailTotal}|${this.data.brushHigh}|${this.data.petHigh}|${this.data.nailHigh}`;
     let hash = 0;
     for (let i = 0; i < dataStr.length; i++) {
       const char = dataStr.charCodeAt(i);
@@ -43,16 +47,20 @@ class Store {
   init() {
     this.data.brushTotal = wx.getStorageSync(STORAGE_KEYS.BRUSH_TOTAL_SCORE) || 0;
     this.data.petTotal = wx.getStorageSync(STORAGE_KEYS.PET_TOTAL_SCORE) || 0;
+    this.data.nailTotal = wx.getStorageSync(STORAGE_KEYS.NAIL_TOTAL_SCORE) || 0;
     this.data.brushHigh = wx.getStorageSync(STORAGE_KEYS.BRUSH_HIGH_SCORE) || 0;
     this.data.petHigh = wx.getStorageSync(STORAGE_KEYS.PET_HIGH_SCORE) || 0;
+    this.data.nailHigh = wx.getStorageSync(STORAGE_KEYS.NAIL_HIGH_SCORE) || 0;
 
     // Verify integrity
     if (!this.verifyChecksum()) {
       console.warn('Data integrity check failed, resetting scores');
       this.data.brushTotal = 0;
       this.data.petTotal = 0;
+      this.data.nailTotal = 0;
       this.data.brushHigh = 0;
       this.data.petHigh = 0;
+      this.data.nailHigh = 0;
       this.saveAll();
     }
   }
@@ -60,8 +68,10 @@ class Store {
   saveAll() {
     wx.setStorageSync(STORAGE_KEYS.BRUSH_TOTAL_SCORE, this.data.brushTotal);
     wx.setStorageSync(STORAGE_KEYS.PET_TOTAL_SCORE, this.data.petTotal);
+    wx.setStorageSync(STORAGE_KEYS.NAIL_TOTAL_SCORE, this.data.nailTotal);
     wx.setStorageSync(STORAGE_KEYS.BRUSH_HIGH_SCORE, this.data.brushHigh);
     wx.setStorageSync(STORAGE_KEYS.PET_HIGH_SCORE, this.data.petHigh);
+    wx.setStorageSync(STORAGE_KEYS.NAIL_HIGH_SCORE, this.data.nailHigh);
     this.saveWithChecksum();
   }
 
@@ -76,6 +86,11 @@ class Store {
       if (score > this.data.petHigh) this.data.petHigh = score;
       wx.setStorageSync(STORAGE_KEYS.PET_TOTAL_SCORE, this.data.petTotal);
       wx.setStorageSync(STORAGE_KEYS.PET_HIGH_SCORE, this.data.petHigh);
+    } else if (type === 'NAIL') {
+      this.data.nailTotal += score;
+      if (score > this.data.nailHigh) this.data.nailHigh = score;
+      wx.setStorageSync(STORAGE_KEYS.NAIL_TOTAL_SCORE, this.data.nailTotal);
+      wx.setStorageSync(STORAGE_KEYS.NAIL_HIGH_SCORE, this.data.nailHigh);
     }
     this.saveWithChecksum();
   }
@@ -83,7 +98,8 @@ class Store {
   getLeaderboardData() {
     return [
       { name: '梳毛毛', total: Math.floor(this.data.brushTotal), high: Math.floor(this.data.brushHigh) },
-      { name: '摸猫猫', total: Math.floor(this.data.petTotal), high: Math.floor(this.data.petHigh) }
+      { name: '摸猫猫', total: Math.floor(this.data.petTotal), high: Math.floor(this.data.petHigh) },
+      { name: '剪指甲', total: Math.floor(this.data.nailTotal), high: Math.floor(this.data.nailHigh) }
     ];
   }
 }

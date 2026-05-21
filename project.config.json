@@ -27,11 +27,32 @@
   },
   "compileType": "game",
   "libVersion": "latest",
-  "appid": "wxaab28950f9aeded1",
+  "appid": "wxcb550d6946853813",
   "projectname": "lumaomao",
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "file",
+        "value": ".DS_Store"
+      },
+      {
+        "type": "file",
+        "value": "*.md"
+      },
+      {
+        "type": "file",
+        "value": ".gitignore"
+      },
+      {
+        "type": "file",
+        "value": ".gitattributes"
+      }
+    ],
     "include": []
   },
   "isGameTourist": false,

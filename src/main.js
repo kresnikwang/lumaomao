@@ -8,6 +8,7 @@ import Leaderboard from './leaderboard.js';
 import AudioManager from './audio.js';
 import ParticleSystem from './particles.js';
 import Tutorial from './tutorial.js';
+import NailGame from './nail.js';
 import { CONFIG } from './config.js';
 import ImageCache from './imageCache.js';
 
@@ -27,9 +28,10 @@ class Main {
     this.leaderboard = new Leaderboard(this.width, this.height);
     this.particles = new ParticleSystem();
     this.tutorial = new Tutorial(this.width, this.height);
+    this.nailGame = new NailGame(this.width, this.height);
 
     this.score = 0;
-    this.gameState = 'HOME'; // HOME, PLAYING, GAMEOVER, PET_GAME, PET_GAMEOVER, RANK, PAUSED
+    this.gameState = 'HOME'; // HOME, PLAYING, GAMEOVER, PET_GAME, PET_GAMEOVER, NAIL_GAME, NAIL_GAMEOVER, RANK, PAUSED
     this.prevGameState = null; // For resuming from pause
     this.restartDelay = 0; // Delay before allowing restart after game over
     
@@ -63,7 +65,7 @@ class Main {
   bindEvents() {
     // Pause on app hide
     wx.onHide(() => {
-      if (this.gameState === 'PLAYING' || this.gameState === 'PET_GAME') {
+      if (this.gameState === 'PLAYING' || this.gameState === 'PET_GAME' || this.gameState === 'NAIL_GAME') {
         this.prevGameState = this.gameState;
         this.gameState = 'PAUSED';
       }
@@ -86,9 +88,14 @@ class Main {
       const x = touch.clientX;
       const y = touch.clientY;
 
-      // Check pause button first (during gameplay)
+      // ─── Carousel swipe on HOME ───
+      if (this.gameState === 'HOME' && this.home.isInCarousel(x, y)) {
+        this.home.handleSwipeStart(x);
+        return; // let the swipe handle this, not a click
+      }
 
-      if ((this.gameState === 'PLAYING' || this.gameState === 'PET_GAME') &&
+      // Check pause button first (during gameplay)
+      if ((this.gameState === 'PLAYING' || this.gameState === 'PET_GAME' || this.gameState === 'NAIL_GAME') &&
           x >= this.pauseBtn.x && x <= this.pauseBtn.x + this.pauseBtn.width &&
           y >= this.pauseBtn.y && y <= this.pauseBtn.y + this.pauseBtn.height) {
         this.prevGameState = this.gameState;
@@ -119,6 +126,9 @@ class Main {
         } else if (action === 'PET') {
           AudioManager.playClick();
           this.restartPet();
+        } else if (action === 'NAIL') {
+          AudioManager.playClick();
+          this.restartNail();
         } else if (action === 'RANK') {
           AudioManager.playClick();
           this.gameState = 'RANK';
@@ -141,11 +151,50 @@ class Main {
         } else if (this.restartDelay <= 0) {
           this.restartPet();
         }
+      } else if (this.gameState === 'NAIL_GAMEOVER') {
+        if (this.restartDelay <= 0) {
+          this.restartNail();
+        }
       } else if (this.gameState === 'RANK') {
         if (this.leaderboard.checkClick(x, y) === 'BACK') {
           AudioManager.playClick();
           this.gameState = 'HOME';
         }
+      } else if (this.gameState === 'NAIL_GAME') {
+        // Delegate touch to nail game
+        const result = this.nailGame.handleTap(x, y);
+        if (result.action === 'CLIP') {
+          AudioManager.playClick();
+        } else if (result.action === 'BITE') {
+          this.gameState = 'NAIL_GAMEOVER';
+          this.nailGame.shakeAmount = 15;
+          this.nailGame.biteFlash = 10;
+          Store.saveScore('NAIL', this.nailGame.nailsClipped);
+          wx.vibrateLong();
+          AudioManager.playBite();
+          this.restartDelay = 1500;
+        } else if (result.action === 'WIN') {
+          this.gameState = 'NAIL_GAMEOVER';
+          this.nailGame.nailWin = true;
+          Store.saveScore('NAIL', this.nailGame.nailsClipped);
+          AudioManager.playMeow();
+        }
+      }
+    });
+
+    // Carousel swipe move
+    wx.onTouchMove((res) => {
+      if (this.gameState !== 'HOME') return;
+      const touch = res.touches[0];
+      if (this.home.isInCarousel(touch.clientX, touch.clientY)) {
+        this.home.handleSwipeMove(touch.clientX);
+      }
+    });
+
+    // Carousel swipe end
+    wx.onTouchEnd(() => {
+      if (this.gameState === 'HOME') {
+        this.home.handleSwipeEnd();
       }
     });
   }
@@ -178,6 +227,14 @@ class Main {
     }
   }
 
+  restartNail() {
+    this.score = 0;
+    this.restartDelay = 0;
+    this.gameState = 'NAIL_GAME';
+    this.nailGame.reset();
+    AudioManager.playPurr();
+  }
+
   update() {
     const now = Date.now();
     const dt = Math.min(now - this.lastTime, 100); // Cap dt at 100ms to prevent huge jumps
@@ -196,6 +253,8 @@ class Main {
         this.updateBrush(this.frameInterval);
       } else if (this.gameState === 'PET_GAME') {
         this.updatePet(this.frameInterval);
+      } else if (this.gameState === 'NAIL_GAME') {
+        this.nailGame.update(this.frameInterval);
       }
       
       // Update particles and tutorial (even during pause for visual effects)
@@ -342,6 +401,21 @@ class Main {
   }
 
   render() {
+    // Nail game draws its own background
+    if (this.gameState === 'NAIL_GAME' || this.gameState === 'NAIL_GAMEOVER') {
+      this.nailGame.render(this.ctx);
+      if (this.gameState === 'NAIL_GAMEOVER') {
+        if (this.nailGame.nailWin) {
+          this.nailGame.renderWin(this.ctx);
+        } else {
+          this.nailGame.renderGameOver(this.ctx);
+        }
+      } else if (this.gameState === 'NAIL_GAME') {
+        this.renderPauseButton();
+      }
+      return;
+    }
+
     // Draw background
     if (this.bgImg && this.bgImg.width > 0) {
       const imgRatio = this.bgImg.width / this.bgImg.height;
@@ -373,6 +447,8 @@ class Main {
       // Draw the game behind pause overlay
       if (this.prevGameState === 'PET_GAME') {
         this.petCat.render(this.ctx);
+      } else if (this.prevGameState === 'NAIL_GAME') {
+        this.nailGame.render(this.ctx);
       } else {
         this.cat.render(this.ctx);
       }

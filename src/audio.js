@@ -1,163 +1,148 @@
 /**
- * Audio manager using WeChat Mini Game API
- * Falls back to Web Audio API if wx.createInnerAudioContext is not available
+ * Audio manager using WeChat Mini Game Web Audio API
+ * All sounds are synthesized — no audio files needed
  */
 
 class AudioManager {
   constructor() {
     this.initialized = false;
-    // Use WeChat's inner audio context when available
-    this.useWxAudio = typeof wx !== 'undefined' && wx.createInnerAudioContext;
-    // Pool of audio contexts for overlapping sounds
-    this.audioPool = [];
-    this.poolSize = 5;
-    this.poolIndex = 0;
-    // Web Audio fallback
     this.webAudioCtx = null;
   }
 
   init() {
     if (this.initialized) return;
-    
-    if (this.useWxAudio) {
-      // Pre-create pool of audio contexts
-      for (let i = 0; i < this.poolSize; i++) {
-        this.audioPool.push(wx.createInnerAudioContext());
-      }
-    }
-    
-    // Always initialize Web Audio API for synthesized sounds
+
+    // Try multiple ways to get a Web Audio context
+    // wx.createWebAudioContext is the standard WeChat mini game API
+    // wx.getWebAudioContext is an older variant
     try {
-      if (typeof wx !== 'undefined' && wx.getWebAudioContext) {
-        this.webAudioCtx = wx.getWebAudioContext();
-      } else if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
-        this.webAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (typeof wx !== 'undefined') {
+        if (wx.createWebAudioContext) {
+          this.webAudioCtx = wx.createWebAudioContext();
+          console.log('[Audio] Initialized via wx.createWebAudioContext');
+        } else if (wx.getWebAudioContext) {
+          this.webAudioCtx = wx.getWebAudioContext();
+          console.log('[Audio] Initialized via wx.getWebAudioContext');
+        }
       }
     } catch (e) {
-      console.log('Web Audio not supported');
+      console.warn('[Audio] WeChat WebAudio init failed:', e.message);
     }
-    
-    this.initialized = true;
+
+    if (this.webAudioCtx) {
+      this.initialized = true;
+      console.log('[Audio] Ready — sample rate:', this.webAudioCtx.sampleRate);
+    } else {
+      console.warn('[Audio] No Web Audio API available — all sounds silenced');
+    }
   }
 
   resume() {
-    if (this.webAudioCtx && this.webAudioCtx.state === 'suspended') {
-      this.webAudioCtx.resume();
-    }
-  }
+    if (!this.webAudioCtx) return;
 
-  // Get next available audio context from pool
-  getAudioCtx() {
-    if (!this.useWxAudio) return null;
-    const ctx = this.audioPool[this.poolIndex];
-    this.poolIndex = (this.poolIndex + 1) % this.poolSize;
-    // Stop previous sound if playing
-    ctx.stop();
-    return ctx;
-  }
-
-  // Play a sound using WeChat API or fallback
-  playSound(src, volume = 1.0) {
-    if (!this.initialized) return;
-    
-    if (this.useWxAudio) {
-      const audio = this.getAudioCtx();
-      if (audio) {
-        audio.src = src;
-        audio.volume = volume;
-        audio.play();
+    try {
+      // WeChat WebAudio context may have .resume() or .state
+      if (typeof this.webAudioCtx.resume === 'function') {
+        this.webAudioCtx.resume();
       }
-    } else {
-      // Web Audio fallback - generate tones
-      this.playTone(440, 0.1, 'sine', volume * 0.3);
+      // Some contexts expose state via a getter
+      if (this.webAudioCtx.state === 'suspended' && typeof this.webAudioCtx.resume === 'function') {
+        this.webAudioCtx.resume();
+      }
+    } catch (e) {
+      console.warn('[Audio] resume failed:', e.message);
     }
   }
 
-  // Play a short purr sound (low frequency rumble)
+  // ─── Synthesized Sound Effects ───
+
   playPurr() {
-    this.playTone(80, 0.3, 'sine', 0.3);
+    this.playTone(80, 0.3, 'sine', 0.25);
   }
 
-  // Play brush sound (white noise)
   playBrush() {
-    this.playNoise(0.1, 0.15);
+    this.playNoise(0.08, 0.12);
   }
 
-  // Play warning hiss
   playHiss() {
-    this.playTone(800, 0.2, 'sawtooth', 0.2);
-    setTimeout(() => this.playTone(600, 0.2, 'sawtooth', 0.2), 100);
+    this.playTone(800, 0.15, 'sawtooth', 0.15);
+    setTimeout(() => this.playTone(600, 0.15, 'sawtooth', 0.15), 80);
   }
 
-  // Play bite/crunch sound
   playBite() {
-    this.playTone(200, 0.1, 'square', 0.4);
-    setTimeout(() => this.playTone(150, 0.2, 'square', 0.3), 50);
+    this.playTone(200, 0.08, 'square', 0.35);
+    setTimeout(() => this.playTone(150, 0.15, 'square', 0.25), 40);
   }
 
-  // Play button click
   playClick() {
-    this.playTone(1200, 0.05, 'sine', 0.2);
+    this.playTone(1200, 0.04, 'sine', 0.15);
   }
 
-  // Play happy meow
   playMeow() {
-    this.playTone(600, 0.15, 'sine', 0.25);
-    setTimeout(() => this.playTone(800, 0.15, 'sine', 0.25), 120);
+    this.playTone(600, 0.12, 'sine', 0.2);
+    setTimeout(() => this.playTone(800, 0.12, 'sine', 0.2), 100);
   }
+
+  // ─── Core Audio Synthesis ───
 
   playTone(freq, duration, type = 'sine', volume = 0.3) {
     if (!this.webAudioCtx) return;
-    
-    const osc = this.webAudioCtx.createOscillator();
-    const gain = this.webAudioCtx.createGain();
-    
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, this.webAudioCtx.currentTime);
-    
-    gain.gain.setValueAtTime(volume, this.webAudioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.webAudioCtx.currentTime + duration);
-    
-    osc.connect(gain);
-    gain.connect(this.webAudioCtx.destination);
-    
-    osc.start(this.webAudioCtx.currentTime);
-    osc.stop(this.webAudioCtx.currentTime + duration);
+
+    try {
+      const osc = this.webAudioCtx.createOscillator();
+      const gain = this.webAudioCtx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.webAudioCtx.currentTime);
+
+      gain.gain.setValueAtTime(volume, this.webAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.webAudioCtx.currentTime + duration);
+
+      osc.connect(gain);
+      gain.connect(this.webAudioCtx.destination);
+
+      osc.start(this.webAudioCtx.currentTime);
+      osc.stop(this.webAudioCtx.currentTime + duration + 0.01);
+    } catch (e) {
+      // Silently ignore — audio is non-critical
+    }
   }
 
   playNoise(duration, volume = 0.2) {
     if (!this.webAudioCtx) return;
-    
-    const bufferSize = this.webAudioCtx.sampleRate * duration;
-    const buffer = this.webAudioCtx.createBuffer(1, bufferSize, this.webAudioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
-    
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
+
+    try {
+      const sampleRate = this.webAudioCtx.sampleRate || 44100;
+      const bufferSize = Math.floor(sampleRate * duration);
+      const buffer = this.webAudioCtx.createBuffer(1, bufferSize, sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = this.webAudioCtx.createBufferSource();
+      noise.buffer = buffer;
+
+      const gain = this.webAudioCtx.createGain();
+      gain.gain.setValueAtTime(volume, this.webAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.webAudioCtx.currentTime + duration);
+
+      noise.connect(gain);
+      gain.connect(this.webAudioCtx.destination);
+      noise.start();
+    } catch (e) {
+      // Silently ignore — audio is non-critical
     }
-    
-    const noise = this.webAudioCtx.createBufferSource();
-    noise.buffer = buffer;
-    
-    const gain = this.webAudioCtx.createGain();
-    gain.gain.setValueAtTime(volume, this.webAudioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.webAudioCtx.currentTime + duration);
-    
-    noise.connect(gain);
-    gain.connect(this.webAudioCtx.destination);
-    noise.start();
   }
 
-  // Clean up audio resources
   destroy() {
-    if (this.useWxAudio) {
-      this.audioPool.forEach(audio => {
-        audio.destroy && audio.destroy();
-      });
-      this.audioPool = [];
-    }
     if (this.webAudioCtx) {
-      this.webAudioCtx.close();
+      try {
+        this.webAudioCtx.close();
+      } catch (e) {
+        // ignore
+      }
       this.webAudioCtx = null;
     }
     this.initialized = false;
